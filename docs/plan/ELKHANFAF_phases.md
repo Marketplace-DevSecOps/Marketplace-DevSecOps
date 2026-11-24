@@ -20,7 +20,7 @@ Statuts : `[ ]` à faire, `[~]` en cours, `[x]` terminé.
 - [x] Config typée validée par Zod au démarrage (échec si variable manquante).
 - [x] Chaîne middleware : corrélation (`X-Request-Id`) → logs pino expurgés → Helmet/CORS liste blanche → limite JSON 64 Kio → (emplacements quotas/auth/validation) → routeur `/api/v1` → 404 → gestionnaire d'erreurs central (code stable, message neutre, correlationId, jamais de stack).
 - [x] `trust proxy` configuré explicitement via env.
-- [ ] `GET /api/v1/health` minimal (API-13).
+- [x] `GET /api/v1/health` minimal (API-13).
 - [ ] Tests : health, 404, JSON malformé, corps trop grand, origine CORS refusée, absence de stack trace, en-têtes Helmet.
 
 ## Phase 2 — Modèle de données, contrats et catégories (API-14) `[ ]`

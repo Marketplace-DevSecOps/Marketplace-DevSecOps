@@ -1,5 +1,6 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { buildTestApp } from '../helpers/testApp.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -16,7 +17,19 @@ describe('error handling', () => {
       router.post('/__test/echo', (req, res) => {
         res.json({ received: req.body !== undefined });
       });
+      router.post('/__test/zod-throw', (req) => {
+        z.strictObject({ name: z.string() }).parse(req.body);
+      });
     },
+  });
+
+  it('maps a ZodError thrown by a handler to 400 VALIDATION_ERROR without Zod internals', async () => {
+    const res = await request(app).post('/api/v1/__test/zod-throw').send({ name: 'hunter2-secret', x: 1 });
+
+    expect(res.status).toBe(400);
+    expectErrorShape(res.body, 'VALIDATION_ERROR');
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.text).not.toMatch(/hunter2|unrecognized|expected|ZodError/i);
   });
 
   it('returns 404 NOT_FOUND with the error shape for an unknown route', async () => {

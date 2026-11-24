@@ -11,24 +11,35 @@ export type ErrorCode =
   | 'UNSUPPORTED_MEDIA_TYPE'
   | 'INTERNAL_ERROR';
 
+/** Neutral, field-level detail of a validation failure. Never contains submitted values. */
+export interface FieldIssue {
+  location: 'params' | 'query' | 'body';
+  path: string;
+  code: string;
+  message: string;
+}
+
 export interface ErrorBody {
   error: {
     code: ErrorCode;
     message: string;
     correlationId: string;
+    details?: FieldIssue[];
   };
 }
 
-/** An error whose code and message are safe to return to the client. */
+/** An error whose code, message and details are safe to return to the client. */
 export class AppError extends Error {
   readonly status: number;
   readonly code: ErrorCode;
+  readonly details: FieldIssue[] | undefined;
 
-  constructor(status: number, code: ErrorCode, message: string) {
+  constructor(status: number, code: ErrorCode, message: string, details?: FieldIssue[]) {
     super(message);
     this.name = 'AppError';
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -94,6 +105,7 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
       code: appError.code,
       message: appError.message,
       correlationId: req.correlationId,
+      ...(appError.details !== undefined ? { details: appError.details } : {}),
     },
   };
   res.status(appError.status).set('Cache-Control', 'no-store').json(body);

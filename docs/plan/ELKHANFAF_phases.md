@@ -33,7 +33,7 @@ Correctifs revue Phase 1 :
 
 - [x] Schéma Prisma : User, Session, Category, Product, Conversation, ConversationParticipant, Message (contraintes, index, uniques, Decimal prix).
 - [x] Migration initiale + seed fictif (catégories, utilisateurs A/B/C/admin).
-- [ ] Rôle PostgreSQL applicatif à privilèges limités séparé du rôle de migration (script SQL documenté).
+- [x] Rôle PostgreSQL applicatif à privilèges limités séparé du rôle de migration (script SQL documenté).
 - [ ] Middleware de validation Zod (params/query/body, `.strict()` refusant les champs inconnus).
 - [ ] Conventions DTO et catalogue des codes d'erreur.
 - [ ] Squelette OpenAPI couvrant API-01 à API-14.

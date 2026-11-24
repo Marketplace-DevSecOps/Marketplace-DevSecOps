@@ -16,7 +16,7 @@ Statuts : `[ ]` à faire, `[~]` en cours, `[x]` terminé.
 ## Phase 1 — Socle Express (API-13) `[~]`
 
 - [x] Initialiser `backend/` : package.json, tsconfig strict, ESLint, Vitest, scripts `dev`, `build`, `test`, `lint`, `typecheck`.
-- [ ] `docker-compose.yml` PostgreSQL (dev + test), `.env.example`, `.gitignore`.
+- [x] `docker-compose.yml` PostgreSQL (dev + test), `.env.example`, `.gitignore`.
 - [ ] Config typée validée par Zod au démarrage (échec si variable manquante).
 - [ ] Chaîne middleware : corrélation (`X-Request-Id`) → logs pino expurgés → Helmet/CORS liste blanche → limite JSON 64 Kio → (emplacements quotas/auth/validation) → routeur `/api/v1` → 404 → gestionnaire d'erreurs central (code stable, message neutre, correlationId, jamais de stack).
 - [ ] `trust proxy` configuré explicitement via env.

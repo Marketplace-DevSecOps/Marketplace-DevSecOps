@@ -58,4 +58,57 @@ describe('log redaction', () => {
       expect(output).not.toContain(secret);
     }
   });
+
+  it('redacts secret fields whatever their nesting depth, including inside arrays', () => {
+    const { logger, logs } = buildTestApp({ captureLogs: true });
+    const event = {
+      a: {
+        b: {
+          c: {
+            password: 'deep-password',
+            passwordHash: 'deep-hash',
+            token: 'deep-token',
+            accessToken: 'deep-access',
+            refreshToken: 'deep-refresh',
+            Cookie: 'deep-cookie',
+            AUTHORIZATION: 'deep-authorization',
+            safe: 'visible-value',
+          },
+        },
+      },
+      sessions: [{ user: { credentials: { refreshToken: 'array-refresh' } } }],
+    };
+
+    logger.info(event, 'nested event');
+
+    const output = logs();
+    expect(output).toContain('nested event');
+    expect(output).toContain('visible-value');
+    for (const secret of [
+      'deep-password',
+      'deep-hash',
+      'deep-token',
+      'deep-access',
+      'deep-refresh',
+      'deep-cookie',
+      'deep-authorization',
+      'array-refresh',
+    ]) {
+      expect(output).not.toContain(secret);
+    }
+    // The caller's object is left untouched.
+    expect(event.a.b.c.password).toBe('deep-password');
+  });
+
+  it('redacts secrets inside circular structures', () => {
+    const { logger, logs } = buildTestApp({ captureLogs: true });
+    const node: Record<string, unknown> = { level1: { level2: { level3: { password: 'cycle-password' } } } };
+    node.self = node;
+
+    logger.info({ node }, 'cyclic event');
+
+    const output = logs();
+    expect(output).toContain('cyclic event');
+    expect(output).not.toContain('cycle-password');
+  });
 });

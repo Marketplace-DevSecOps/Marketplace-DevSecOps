@@ -13,7 +13,7 @@ Statuts : `[ ]` à faire, `[~]` en cours, `[x]` terminé.
 - Secrets uniquement via `.env` (non commité) ; `.env.example` fourni.
 - Un commit (et un push) par tâche.
 
-## Phase 1 — Socle Express (API-13) `[~]`
+## Phase 1 — Socle Express (API-13) `[x]`
 
 - [x] Initialiser `backend/` : package.json, tsconfig strict, ESLint, Vitest, scripts `dev`, `build`, `test`, `lint`, `typecheck`.
 - [x] `docker-compose.yml` PostgreSQL (dev + test), `.env.example`, `.gitignore`.
@@ -21,7 +21,7 @@ Statuts : `[ ]` à faire, `[~]` en cours, `[x]` terminé.
 - [x] Chaîne middleware : corrélation (`X-Request-Id`) → logs pino expurgés → Helmet/CORS liste blanche → limite JSON 64 Kio → (emplacements quotas/auth/validation) → routeur `/api/v1` → 404 → gestionnaire d'erreurs central (code stable, message neutre, correlationId, jamais de stack).
 - [x] `trust proxy` configuré explicitement via env.
 - [x] `GET /api/v1/health` minimal (API-13).
-- [ ] Tests : health, 404, JSON malformé, corps trop grand, origine CORS refusée, absence de stack trace, en-têtes Helmet.
+- [x] Tests : health, 404, JSON malformé, corps trop grand, origine CORS refusée, absence de stack trace, en-têtes Helmet.
 
 ## Phase 2 — Modèle de données, contrats et catégories (API-14) `[ ]`
 

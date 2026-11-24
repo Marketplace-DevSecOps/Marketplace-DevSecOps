@@ -1,0 +1,64 @@
+import { describe, expect, it } from 'vitest';
+import { ConfigError, parseConfig } from '../../src/infrastructure/config.js';
+import { TEST_ENV } from '../helpers/testApp.js';
+
+function configErrorOf(env: Record<string, string | undefined>): ConfigError {
+  try {
+    parseConfig(env);
+  } catch (err) {
+    if (err instanceof ConfigError) return err;
+    throw err;
+  }
+  throw new Error('expected parseConfig to throw');
+}
+
+describe('parseConfig', () => {
+  it('parses a valid environment and applies defaults', () => {
+    const config = parseConfig({ ...TEST_ENV, CORS_ORIGINS: 'http://localhost:5173, https://app.example.com' });
+    expect(config.PORT).toBe(3000);
+    expect(config.BODY_LIMIT).toBe('64kb');
+    expect(config.CORS_ORIGINS).toEqual(['http://localhost:5173', 'https://app.example.com']);
+    expect(config.TRUST_PROXY).toBe(false);
+  });
+
+  it.each([
+    ['false', false],
+    ['true', true],
+    ['1', 1],
+    ['loopback, 10.0.0.0/8', ['loopback', '10.0.0.0/8']],
+  ])('parses TRUST_PROXY=%s', (value, expected) => {
+    expect(parseConfig({ ...TEST_ENV, TRUST_PROXY: value }).TRUST_PROXY).toEqual(expected);
+  });
+
+  it('fails when required variables are missing', () => {
+    const error = configErrorOf({});
+    expect(error.message).toMatch(/^Invalid configuration:/);
+    expect(error.message).toContain('CORS_ORIGINS');
+    expect(error.message).toContain('TRUST_PROXY');
+    expect(error.message).toContain('DATABASE_URL');
+  });
+
+  it('rejects invalid values with the variable name', () => {
+    const error = configErrorOf({ ...TEST_ENV, PORT: '99999', LOG_LEVEL: 'loud', TRUST_PROXY: 'yes' });
+    expect(error.issues.map((issue) => issue.split(' ')[0])).toEqual(['PORT', 'LOG_LEVEL', 'TRUST_PROXY']);
+  });
+
+  it.each(['*', 'http://localhost:5173/path', 'ftp://example.com'])('rejects CORS origin %s', (origin) => {
+    expect(configErrorOf({ ...TEST_ENV, CORS_ORIGINS: origin }).message).toContain('CORS_ORIGINS');
+  });
+
+  it('requires a test database separate from the main one in test mode', () => {
+    expect(configErrorOf({ ...TEST_ENV, DATABASE_URL_TEST: undefined }).message).toContain('DATABASE_URL_TEST');
+    expect(configErrorOf({ ...TEST_ENV, DATABASE_URL_TEST: TEST_ENV.DATABASE_URL }).message).toContain(
+      'DATABASE_URL_TEST',
+    );
+  });
+
+  it('never includes secret values in the error message', () => {
+    const secret = 'S3cr3t-P4ssw0rd';
+    const error = configErrorOf({ ...TEST_ENV, DATABASE_URL: `mysql://admin:${secret}@db.internal/app` });
+    expect(error.message).toContain('DATABASE_URL');
+    expect(error.message).not.toContain(secret);
+    expect(error.message).not.toContain('db.internal');
+  });
+});

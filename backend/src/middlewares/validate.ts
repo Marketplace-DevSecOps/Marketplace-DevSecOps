@@ -95,9 +95,7 @@ export function validate(schemas: ValidationSchemas): RequestHandler {
     }
 
     if (details.length > 0) {
-      next(
-        new AppError(400, 'VALIDATION_ERROR', 'The request is invalid.', details.slice(0, MAX_DETAILS)),
-      );
+      next(new AppError('VALIDATION_ERROR', { details: details.slice(0, MAX_DETAILS) }));
       return;
     }
 

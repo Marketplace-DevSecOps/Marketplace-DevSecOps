@@ -19,7 +19,7 @@ export function cors(allowedOrigins: readonly string[]): RequestHandler {
       } else if (allowlist.has(origin)) {
         callback(null, origin);
       } else {
-        callback(new AppError(403, 'CORS_FORBIDDEN', 'This origin is not allowed.'));
+        callback(new AppError('CORS_FORBIDDEN'));
       }
     },
     credentials: true,

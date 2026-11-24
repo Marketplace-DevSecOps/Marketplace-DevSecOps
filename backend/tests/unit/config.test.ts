@@ -30,6 +30,20 @@ describe('parseConfig', () => {
     expect(parseConfig({ ...TEST_ENV, TRUST_PROXY: value }).TRUST_PROXY).toEqual(expected);
   });
 
+  it('rejects TRUST_PROXY=true in production', () => {
+    const error = configErrorOf({ ...TEST_ENV, NODE_ENV: 'production', TRUST_PROXY: 'true' });
+    expect(error.issues).toHaveLength(1);
+    expect(error.issues[0]).toMatch(/^TRUST_PROXY /);
+  });
+
+  it.each([
+    ['false', false],
+    ['2', 2],
+    ['10.0.0.1, 192.168.0.0/16', ['10.0.0.1', '192.168.0.0/16']],
+  ])('accepts TRUST_PROXY=%s in production', (value, expected) => {
+    expect(parseConfig({ ...TEST_ENV, NODE_ENV: 'production', TRUST_PROXY: value }).TRUST_PROXY).toEqual(expected);
+  });
+
   it('fails when required variables are missing', () => {
     const error = configErrorOf({});
     expect(error.message).toMatch(/^Invalid configuration:/);

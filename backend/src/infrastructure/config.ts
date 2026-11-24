@@ -106,6 +106,14 @@ const configSchema = z
     if (config.NODE_ENV === 'test' && config.DATABASE_URL_TEST === undefined) {
       ctx.addIssue({ code: 'custom', path: ['DATABASE_URL_TEST'], message: 'is required when NODE_ENV=test' });
     }
+    // Trusting every hop lets clients choose req.ip through X-Forwarded-For.
+    if (config.NODE_ENV === 'production' && config.TRUST_PROXY === true) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['TRUST_PROXY'],
+        message: 'must not be true when NODE_ENV=production (use false, a hop count or a list of trusted addresses/subnets)',
+      });
+    }
     if (config.DATABASE_URL_TEST !== undefined && config.DATABASE_URL_TEST === config.DATABASE_URL) {
       ctx.addIssue({ code: 'custom', path: ['DATABASE_URL_TEST'], message: 'must point to a database separate from DATABASE_URL' });
     }

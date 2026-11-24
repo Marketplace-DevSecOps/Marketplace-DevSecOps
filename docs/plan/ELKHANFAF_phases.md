@@ -23,7 +23,11 @@ Statuts : `[ ]` à faire, `[~]` en cours, `[x]` terminé.
 - [x] `GET /api/v1/health` minimal (API-13).
 - [x] Tests : health, 404, JSON malformé, corps trop grand, origine CORS refusée, absence de stack trace, en-têtes Helmet.
 
-## Phase 2 — Modèle de données, contrats et catégories (API-14) `[ ]`
+## Phase 2 — Modèle de données, contrats et catégories (API-14) `[~]`
+
+Correctifs revue Phase 1 :
+
+- [x] `TRUST_PROXY=true` refusé quand `NODE_ENV=production` (false, nombre de sauts ou liste d'adresses/sous-réseaux) + tests.
 
 - [ ] Schéma Prisma : User, Session, Category, Product, Conversation, ConversationParticipant, Message (contraintes, index, uniques, Decimal prix).
 - [ ] Migration initiale + seed fictif (catégories, utilisateurs A/B/C/admin).

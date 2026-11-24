@@ -44,6 +44,19 @@ describe('parseConfig', () => {
     expect(parseConfig({ ...TEST_ENV, NODE_ENV: 'production', TRUST_PROXY: value }).TRUST_PROXY).toEqual(expected);
   });
 
+  it.each(['64kb', '65536b', '16KB', '1kb'])('accepts BODY_LIMIT=%s up to 64kb', (value) => {
+    expect(parseConfig({ ...TEST_ENV, BODY_LIMIT: value }).BODY_LIMIT).toBe(value);
+  });
+
+  it.each(['65kb', '65537b', '1mb', '500mb'])('rejects BODY_LIMIT=%s above 64kb', (value) => {
+    const error = configErrorOf({ ...TEST_ENV, BODY_LIMIT: value });
+    expect(error.issues).toEqual(['BODY_LIMIT must not exceed 64kb']);
+  });
+
+  it('rejects a malformed BODY_LIMIT with a single format issue', () => {
+    expect(configErrorOf({ ...TEST_ENV, BODY_LIMIT: 'big' }).issues).toEqual(['BODY_LIMIT must be a size such as 64kb']);
+  });
+
   it('fails when required variables are missing', () => {
     const error = configErrorOf({});
     expect(error.message).toMatch(/^Invalid configuration:/);

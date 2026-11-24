@@ -28,6 +28,7 @@ Statuts : `[ ]` à faire, `[~]` en cours, `[x]` terminé.
 Correctifs revue Phase 1 :
 
 - [x] `TRUST_PROXY=true` refusé quand `NODE_ENV=production` (false, nombre de sauts ou liste d'adresses/sous-réseaux) + tests.
+- [x] `BODY_LIMIT` plafonné à 64 Kio (valeur supérieure refusée au démarrage) + tests.
 
 - [ ] Schéma Prisma : User, Session, Category, Product, Conversation, ConversationParticipant, Message (contraintes, index, uniques, Decimal prix).
 - [ ] Migration initiale + seed fictif (catégories, utilisateurs A/B/C/admin).

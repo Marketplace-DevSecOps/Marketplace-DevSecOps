@@ -6,6 +6,19 @@ const NAMED_PROXY_SUBNETS = new Set(['loopback', 'linklocal', 'uniquelocal']);
 
 export type TrustProxy = boolean | number | string[];
 
+// The spec fixes the general JSON limit at 64 KiB; env may only lower it.
+const MAX_BODY_LIMIT_BYTES = 64 * 1024;
+const BODY_LIMIT_PATTERN = /^(\d+)(b|kb|mb)$/i;
+const SIZE_UNIT_BYTES: Record<string, number> = { b: 1, kb: 1024, mb: 1024 * 1024 };
+
+function bodyLimitBytes(value: string): number {
+  const match = BODY_LIMIT_PATTERN.exec(value);
+  // Malformed values are reported by the format check only.
+  if (match === null) return 0;
+  const [, amount = '', unit = ''] = match;
+  return Number(amount) * (SIZE_UNIT_BYTES[unit.toLowerCase()] ?? Number.POSITIVE_INFINITY);
+}
+
 function parseOrigin(value: string): string | null {
   try {
     const url = new URL(value);
@@ -97,7 +110,8 @@ const configSchema = z
     BODY_LIMIT: z
       .string()
       .trim()
-      .regex(/^\d+(b|kb|mb)$/i, { error: 'must be a size such as 64kb' })
+      .regex(BODY_LIMIT_PATTERN, { error: 'must be a size such as 64kb' })
+      .refine((value) => bodyLimitBytes(value) <= MAX_BODY_LIMIT_BYTES, { error: 'must not exceed 64kb' })
       .default('64kb'),
     DATABASE_URL: postgresUrl,
     DATABASE_URL_TEST: postgresUrl.optional(),

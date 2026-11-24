@@ -17,7 +17,7 @@ Statuts : `[ ]` à faire, `[~]` en cours, `[x]` terminé.
 
 - [x] Initialiser `backend/` : package.json, tsconfig strict, ESLint, Vitest, scripts `dev`, `build`, `test`, `lint`, `typecheck`.
 - [x] `docker-compose.yml` PostgreSQL (dev + test), `.env.example`, `.gitignore`.
-- [ ] Config typée validée par Zod au démarrage (échec si variable manquante).
+- [x] Config typée validée par Zod au démarrage (échec si variable manquante).
 - [ ] Chaîne middleware : corrélation (`X-Request-Id`) → logs pino expurgés → Helmet/CORS liste blanche → limite JSON 64 Kio → (emplacements quotas/auth/validation) → routeur `/api/v1` → 404 → gestionnaire d'erreurs central (code stable, message neutre, correlationId, jamais de stack).
 - [ ] `trust proxy` configuré explicitement via env.
 - [ ] `GET /api/v1/health` minimal (API-13).

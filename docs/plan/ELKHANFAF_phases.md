@@ -32,7 +32,7 @@ Correctifs revue Phase 1 :
 - [x] Expurgation des logs indépendante de la profondeur (password, passwordHash, token, accessToken, refreshToken, cookie, authorization) + test à 3+ niveaux.
 
 - [x] Schéma Prisma : User, Session, Category, Product, Conversation, ConversationParticipant, Message (contraintes, index, uniques, Decimal prix).
-- [ ] Migration initiale + seed fictif (catégories, utilisateurs A/B/C/admin).
+- [x] Migration initiale + seed fictif (catégories, utilisateurs A/B/C/admin).
 - [ ] Rôle PostgreSQL applicatif à privilèges limités séparé du rôle de migration (script SQL documenté).
 - [ ] Middleware de validation Zod (params/query/body, `.strict()` refusant les champs inconnus).
 - [ ] Conventions DTO et catalogue des codes d'erreur.

@@ -31,7 +31,7 @@ Correctifs revue Phase 1 :
 - [x] `BODY_LIMIT` plafonné à 64 Kio (valeur supérieure refusée au démarrage) + tests.
 - [x] Expurgation des logs indépendante de la profondeur (password, passwordHash, token, accessToken, refreshToken, cookie, authorization) + test à 3+ niveaux.
 
-- [ ] Schéma Prisma : User, Session, Category, Product, Conversation, ConversationParticipant, Message (contraintes, index, uniques, Decimal prix).
+- [x] Schéma Prisma : User, Session, Category, Product, Conversation, ConversationParticipant, Message (contraintes, index, uniques, Decimal prix).
 - [ ] Migration initiale + seed fictif (catégories, utilisateurs A/B/C/admin).
 - [ ] Rôle PostgreSQL applicatif à privilèges limités séparé du rôle de migration (script SQL documenté).
 - [ ] Middleware de validation Zod (params/query/body, `.strict()` refusant les champs inconnus).

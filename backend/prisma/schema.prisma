@@ -1,0 +1,189 @@
+// Data model (spec section 3.2). Constraints Prisma cannot express are added
+// as raw SQL in the migration (CHECK on price range, currency allowlist,
+// buyerId <> sellerId, lowercase email) and re-checked by Zod and services.
+//
+// Conventions:
+// - Ids are random UUID v4 (opaque, no creation order leaked). An id is never
+//   a permission: every lookup is filtered by owner or participant.
+// - Every relation uses Restrict: deleting a parent with children fails
+//   instead of cascading (no accidental loss of conversations or messages).
+// - Length caps mirror the Zod limits so the database refuses oversized data
+//   even if a validation layer is bypassed.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum ProductStatus {
+  ACTIVE
+  REMOVED
+}
+
+enum ParticipantRole {
+  BUYER
+  SELLER
+}
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  /// Stored trimmed and lowercased by the service (CHECK in migration).
+  email        String     @unique @db.VarChar(254)
+  displayName  String     @db.VarChar(50)
+  /// Argon2id encoded hash. Secret: never in a DTO or a log.
+  passwordHash String     @db.VarChar(255)
+  /// Assigned by the server only; never taken from a request body.
+  role         Role       @default(USER)
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime   @updatedAt @db.Timestamptz(3)
+
+  sessions                Session[]
+  products                Product[]
+  conversationsAsBuyer    Conversation[]            @relation("ConversationBuyer")
+  conversationsAsSeller   Conversation[]            @relation("ConversationSeller")
+  conversationParticipant ConversationParticipant[]
+  messages                Message[]
+}
+
+/// One row per refresh token. Rotation creates a new row in the same family
+/// and marks the previous one used; presenting a used token again revokes the
+/// whole family (reuse detection).
+model Session {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  /// Digest of the opaque refresh token; the token itself is never stored.
+  refreshTokenHash String    @unique @db.VarChar(128)
+  /// Shared by all sessions produced by rotation from one login.
+  familyId         String    @db.Uuid
+  expiresAt        DateTime  @db.Timestamptz(3)
+  revokedAt        DateTime? @db.Timestamptz(3)
+  /// Set when the token was rotated; a later presentation is a reuse.
+  usedAt           DateTime? @db.Timestamptz(3)
+  replacedById     String?   @unique @db.Uuid
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(3)
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  replacedBy Session? @relation("SessionRotation", fields: [replacedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  replaces   Session? @relation("SessionRotation")
+
+  @@index([userId, expiresAt])
+  @@index([familyId])
+  @@index([expiresAt])
+}
+
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  label     String   @unique @db.VarChar(60)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  products Product[]
+}
+
+model Product {
+  id          String        @id @default(uuid()) @db.Uuid
+  /// Taken from the session at creation; never modifiable.
+  sellerId    String        @db.Uuid
+  categoryId  String        @db.Uuid
+  title       String        @db.VarChar(120)
+  description String        @db.VarChar(5000)
+  /// 0.01 to 1000000.00 (CHECK in migration). Exactly two decimals, no
+  /// rounding: inputs with more decimals are rejected. Sent as a string.
+  price       Decimal       @db.Decimal(12, 2)
+  /// ISO 4217 code. Allowlist is MAD only for now (CHECK in migration).
+  currency    String        @default("MAD") @db.Char(3)
+  status      ProductStatus @default(ACTIVE)
+  /// Optimistic concurrency: PATCH must send the current version.
+  version     Int           @default(1)
+  createdAt   DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(3)
+
+  seller        User           @relation(fields: [sellerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  category      Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conversations Conversation[]
+
+  @@index([status, categoryId, createdAt])
+  @@index([status, createdAt])
+  @@index([sellerId])
+}
+
+model Conversation {
+  id             String   @id @default(uuid()) @db.Uuid
+  productId      String   @db.Uuid
+  buyerId        String   @db.Uuid
+  /// Derived from the product, never from the request.
+  sellerId       String   @db.Uuid
+  /// Last allocated Message.seq; incremented in the message transaction.
+  lastMessageSeq Int      @default(0)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  product      Product                   @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  buyer        User                      @relation("ConversationBuyer", fields: [buyerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  seller       User                      @relation("ConversationSeller", fields: [sellerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@unique([productId, buyerId, sellerId])
+  @@index([buyerId])
+  @@index([sellerId])
+}
+
+/// Exactly one BUYER and one SELLER per conversation; no arbitrary additions.
+model ConversationParticipant {
+  id             String          @id @default(uuid()) @db.Uuid
+  conversationId String          @db.Uuid
+  userId         String          @db.Uuid
+  role           ParticipantRole
+  /// Optional read cursor (last read Message.seq).
+  lastReadSeq    Int?
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([conversationId, userId])
+  @@unique([conversationId, role])
+  @@index([userId])
+}
+
+model Message {
+  id              String   @id @default(uuid()) @db.Uuid
+  conversationId  String   @db.Uuid
+  /// Derived from the session, never from the payload.
+  senderId        String   @db.Uuid
+  /// Private content: never logged.
+  body            String   @db.VarChar(2000)
+  /// Client idempotency key, scoped to the sender.
+  clientMessageId String   @db.VarChar(64)
+  /// Per-conversation order, allocated from Conversation.lastMessageSeq.
+  seq             Int
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([senderId, clientMessageId])
+  // This unique index also serves (conversationId, seq) range scans for
+  // history pagination; a separate non-unique index would duplicate it.
+  @@unique([conversationId, seq])
+}

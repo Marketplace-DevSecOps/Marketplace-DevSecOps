@@ -2,12 +2,13 @@ import type { PropsWithChildren } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../theme/theme';
+import { ServiceModeNotice } from './ServiceModeNotice';
 
 export function Screen({ children, fullScreen = false }: PropsWithChildren<{ fullScreen?: boolean }>) {
   return (
     <SafeAreaView style={styles.safe} edges={fullScreen ? undefined : ['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.content}>{children}</View>
+        <View style={styles.content}><ServiceModeNotice />{children}</View>
       </ScrollView>
     </SafeAreaView>
   );

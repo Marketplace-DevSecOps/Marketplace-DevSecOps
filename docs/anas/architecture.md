@@ -1,5 +1,7 @@
 # Architecture prévue du mobile et de la messagerie
 
+Le [client REST mobile](client-api-mobile.md) est désormais implémenté dans les services et schémas de mobile/src. Le mode réel reste distinct du mock, et les écrans ainsi que l’orchestration de session restent à intégrer.
+
 Mise à jour : le [socle mobile](socle-mobile.md) réalise désormais les dispositions, les routes provisoires et les états communs dans `mobile/`. Son README précise le regroupement des routes privées sous `(authenticated)`. Les services métier et les flux décrits ci-dessous restent prévisionnels.
 
 Statut initial **Prévu**, au 25 novembre 2026, référence locale `bf5faa6`. Cette architecture est une proposition documentaire fondée sur les [contrats REST](rest-mobile.md), le [contrat temps réel](messagerie-temps-reel.md) et le [cahier Anas](../responsibilities/Anas_HALLOUMI.md). Les chemins ci-dessous désignent des fichiers futurs. Les routes métier, le mobile et Socket.IO restent absents du dépôt.

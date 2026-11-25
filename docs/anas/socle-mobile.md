@@ -16,7 +16,7 @@ Le regroupement `(authenticated)` remplace l’emplacement prévisionnel `(main)
 
 ## Vérifications de cette étape
 
-Relevé en cours : les résultats d’installation, types, tests et démarrage seront consignés ici après exécution. Aucun test sur appareil n’est revendiqué.
+Le relevé initial avait été interrompu par une déconnexion de l’environnement. L’étape suivante [client API mobile](client-api-mobile.md) a exécuté avec succès les 10 tests existants du socle, au sein des 57 tests complets, ainsi que le contrôle des types et l’export Web. Il s’agit de tests en simulation et de génération de bundle ; aucun essai sur appareil ni démarrage visuel de navigateur n’est revendiqué.
 
 Environnement constaté : Windows, Node 24.18.0 et npm 11.16.0. Le SDK Android et Android Studio sont présents. `adb devices -l` ne liste aucun appareil et `emulator -list-avds` ne liste aucun AVD. Aucun appareil Android ni simulateur iOS n’est donc utilisé à cette étape.
 

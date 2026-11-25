@@ -1,5 +1,9 @@
 # Secure Marketplace — socle mobile
 
+La couche [client API mobile](../docs/anas/client-api-mobile.md) est maintenant disponible : Axios centralisé, services auth/users/products/categories/conversations/messages, schémas Zod et mode mock explicite. Les écrans restent provisoires et la session du socle reste anonyme. Le raccordement de ces écrans et de SecureStore sera une étape distincte.
+
+Pour la configuration réseau, copier .env.example vers .env depuis mobile/, puis consulter le relevé lié ci-dessus. Le mode réel est la valeur par défaut et ne bascule jamais sur les fixtures ; EXPO_PUBLIC_API_MODE=mock sélectionne uniquement la simulation fictive, avec une mention visible sur chaque écran.
+
 Étape du 25 novembre 2026. Application Expo / React Native en TypeScript avec Expo Router. Les écrans sont provisoires et identifiés comme tels dans l’interface. Aucun formulaire métier, appel API, stockage de jeton ou transport Socket.IO n’est encore connecté.
 
 ## Installation et commandes
@@ -52,6 +56,6 @@ Les versions sont choisies selon la [matrice officielle Expo SDK](https://docs.e
 - Router 58.0.32, safe area 5.11.1 et screens 4.30.1 : versions recommandées par ce SDK.
 - Jest 30, jest-expo 58 et React Native Testing Library 14 : combinaison indiquée par les [tests Expo](https://docs.expo.dev/develop/unit-testing/) et les [tests Router SDK 58](https://docs.expo.dev/router/reference/testing/). `@react-native/jest-preset` est requis par `jest-expo`.
 
-Les modules de navigation, safe area, linking, constantes et barre de statut couvrent les besoins de cette étape. React DOM, React Native Web et le runtime Metro permettent les contrôles Web sur Windows. Axios, SecureStore, Socket.IO Client, schémas métier et bibliothèques d’interface supplémentaires sont reportés aux étapes qui les utiliseront.
+Les modules de navigation, safe area, linking, constantes et barre de statut couvrent les besoins du socle. React DOM, React Native Web et le runtime Metro permettent les contrôles Web sur Windows. L’étape client REST ajoute uniquement Axios et Zod ; SecureStore, Socket.IO Client et les bibliothèques d’interface supplémentaires restent reportés aux étapes qui les utiliseront.
 
 Consulter le [relevé du socle](../docs/anas/socle-mobile.md) pour les vérifications réellement exécutées et les limites par plateforme. Les [contrats REST](../docs/anas/rest-mobile.md), [contrats temps réel](../docs/anas/messagerie-temps-reel.md) et [responsabilités Anas](../docs/responsibilities/Anas_HALLOUMI.md) restent les références métier.

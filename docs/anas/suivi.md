@@ -1,5 +1,7 @@
 # Matrice de suivi mobile et messagerie
 
+Mise à jour : le [socle mobile](socle-mobile.md) apporte une réalisation partielle de MOB-03, MOB-08 et MOB-09. Les preuves limitées à cette étape sont consignées dans ce relevé ; elles ne valident pas les scénarios métier complets de la matrice initiale ci-dessous. MOB-01/MOB-02, les données du catalogue/profil et MSG-01 à MSG-06 restent à implémenter.
+
 Références fonctionnelles conservées du [cahier Anas](../responsibilities/Anas_HALLOUMI.md). État initial au 25 novembre 2026 : **Prévu** pour chacune des quinze fonctionnalités et pour leurs preuves. L'[architecture](architecture.md) définit les chemins futurs. Les tests et artefacts ci-dessous sont des livrables attendus, sans fichier de résultat créé à cette étape.
 
 ## Statuts et preuves

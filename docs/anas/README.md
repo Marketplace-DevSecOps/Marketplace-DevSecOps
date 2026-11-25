@@ -1,5 +1,7 @@
 # Documentation mobile et messagerie — Anas
 
+Mise à jour du socle : l’application `mobile/` existe désormais. Le [relevé du socle mobile](socle-mobile.md) décrit son périmètre, ses versions et les vérifications réellement exécutées. Les constats ci-dessous décrivent la révision documentaire initiale et restent historiques pour la présence du mobile. Les contrats métier demeurent des propositions à intégrer.
+
 Révision documentaire du 25 novembre 2026, sur le code local au commit `bf5faa6`.
 
 ## Statut et lecture

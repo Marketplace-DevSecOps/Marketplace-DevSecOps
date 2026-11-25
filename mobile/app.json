@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "Secure Marketplace",
+    "slug": "secure-marketplace-mobile",
+    "version": "0.1.0",
+    "userInterfaceStyle": "light",
+    "plugins": ["expo-router"],
+    "experiments": { "typedRoutes": true },
+    "web": { "bundler": "metro", "output": "single" }
+  }
+}

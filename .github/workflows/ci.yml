@@ -1,0 +1,46 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [staging, production]
+
+  pull_request:
+    branches: [staging, production]
+
+jobs:
+  build-test-security:
+    runs-on: ubuntu-latest
+
+    steps:
+  
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      
+      - name: Build Docker images
+        run: docker compose build
+
+
+      - name: Run backend tests
+        run: docker compose run --rm backend npm test
+
+      # SAST : SonarQub
+      - name: SonarQube Analysis
+        uses: SonarSource/sonarqube-scan-action@v8.3.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: -Dsonar.qualitygate.wait=true
+
+      # 5. Vulnerability Scanning
+      - name: Trivy Backend Scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: 'backend:latest'
+          format: 'table'
+          exit-code: '1'
+          severity: 'HIGH,CRITICAL'
+          scanners: 'vuln'

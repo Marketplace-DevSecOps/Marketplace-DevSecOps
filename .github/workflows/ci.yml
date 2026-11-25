@@ -3,44 +3,162 @@ name: Continuous Integration
 on:
   push:
     branches: [staging, production, develop]
-
   pull_request:
     branches: [staging, production, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-test-security:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      COMPOSE_PROJECT_NAME: marketplace
 
     steps:
-  
       - name: Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      
-      - name: Build Docker images
-        run: docker compose build
+      - name: Prepare isolated CI environment
+        run: |
+          cp backend/.env.example .env
+          cp backend/.env.example backend/.env
+          docker compose config --quiet
 
+      - name: Build Docker image
+        run: docker compose build --pull backend
+
+      - name: Start isolated databases
+        run: docker compose up --detach --wait --wait-timeout 90 db-dev db-test
+
+      - name: Apply migrations to the test database
+        run: docker compose run --rm --no-deps -e NODE_ENV=test backend npm run test:db
+
+      - name: Check backend types
+        run: docker compose run --rm --no-deps -e NODE_ENV=test backend npm run typecheck
 
       - name: Run backend tests
-        run: docker compose run --rm backend npm test
+        run: docker compose run --rm --no-deps -e NODE_ENV=test backend npm test
 
-      # SAST : SonarQub
-      - name: SonarQube Analysis
+      - name: Trivy backend image scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: marketplace-backend:latest
+          format: table
+          output: trivy-backend.txt
+          exit-code: '1'
+          severity: HIGH,CRITICAL
+          scanners: vuln
+
+      - name: Upload image scan report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-backend-${{ github.sha }}
+          path: trivy-backend.txt
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Clean up isolated CI environment
+        if: always()
+        run: |
+          docker compose down --volumes --remove-orphans
+          rm -f .env backend/.env
+
+  mobile:
+    name: Mobile types, tests and Web bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      CI: 'true'
+      EXPO_OFFLINE: '1'
+      EXPO_PUBLIC_API_MODE: real
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install mobile dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Check mobile types
+        run: npm run typecheck
+
+      - name: Run mobile tests
+        run: npm test -- --watch=false
+
+      - name: Build mobile Web bundle
+        run: npm run export:web
+
+  sonarqube:
+    name: Optional SonarQube analysis
+    needs: [build-test-security, mobile]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check optional SonarQube configuration
+        id: sonar
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+        run: |
+          if [[ -z "$SONAR_TOKEN" && -z "$SONAR_HOST_URL" && -z "$SONAR_PROJECT_KEY" ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Optional SonarQube analysis was not run: configure SONAR_TOKEN, SONAR_HOST_URL and SONAR_PROJECT_KEY to enable it."
+            echo "SonarQube: NOT RUN (optional external service is not configured)." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ -z "$SONAR_TOKEN" || -z "$SONAR_HOST_URL" || -z "$SONAR_PROJECT_KEY" ]]; then
+            echo "::error::SonarQube configuration is incomplete. Provide SONAR_TOKEN, SONAR_HOST_URL and SONAR_PROJECT_KEY together."
+            exit 1
+          elif [[ ! "$SONAR_PROJECT_KEY" =~ ^[a-zA-Z0-9_.:-]+$ ]]; then
+            echo "::error::SONAR_PROJECT_KEY contains unsupported characters."
+            exit 1
+          elif [[ -n "$SONAR_ORGANIZATION" && ! "$SONAR_ORGANIZATION" =~ ^[a-zA-Z0-9_.:-]+$ ]]; then
+            echo "::error::SONAR_ORGANIZATION contains unsupported characters."
+            exit 1
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout source code
+        if: steps.sonar.outputs.enabled == 'true'
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: SonarQube analysis and quality gate
+        if: steps.sonar.outputs.enabled == 'true'
         uses: SonarSource/sonarqube-scan-action@v8.3.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         with:
-          args: -Dsonar.qualitygate.wait=true
-
-      # 5. Vulnerability Scanning
-      - name: Trivy Backend Scan
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: 'backend:latest'
-          format: 'table'
-          exit-code: '1'
-          severity: 'HIGH,CRITICAL'
-          scanners: 'vuln'
+          args: >-
+            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=300

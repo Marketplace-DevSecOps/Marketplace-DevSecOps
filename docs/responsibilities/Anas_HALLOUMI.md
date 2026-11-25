@@ -1,6 +1,6 @@
 # Cahier des charges individuel — HALLOUMI Anas
 
-**Domain : Application mobile et messagerie temps réel**  
+**Domain : Application mobil et messagerie temps réel**  
 **Projet : Secure Marketplace — AI-Augmented DevSecOps**  
 **Établissement : FST Marrakech, Université Cadi Ayyad — Cycle ingénieur IRISI 3**  
 **Module : Sécurité des applications et des services**  

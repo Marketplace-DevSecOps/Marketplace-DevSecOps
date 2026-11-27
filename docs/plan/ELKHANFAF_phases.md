@@ -62,8 +62,8 @@ Correctifs revue Phase 2 :
 - [x] `POST /auth/register` : rôle USER forcé, rôle injecté rejeté, doublon concurrent → 409.
 - [x] `POST /auth/login` + `/auth/mobile/login` : erreur générique, quota 5 échecs/min compte+IP partagé entre variantes.
 - [x] Jeton d'accès JWT 10 min (alg, iss, aud, exp stricts) ; refresh opaque 7 j, empreinte en base, rotation atomique, détection de réutilisation → révocation de la famille.
-- [ ] Web : cookie `HttpOnly; Secure; SameSite; Path` limité + contrôle Origin + CSRF. Mobile : refresh dans le corps, `Cache-Control: no-store`, aucun cookie accepté.
-- [ ] `POST /auth/refresh|logout` et variantes mobiles.
+- [x] Web : cookie `HttpOnly; Secure; SameSite; Path` limité + contrôle Origin + CSRF. Mobile : refresh dans le corps, `Cache-Control: no-store`, aucun cookie accepté.
+- [x] `POST /auth/refresh|logout` et variantes mobiles.
 - [x] Middleware d'authentification vérifiant la session active en base.
 - [ ] `GET/PATCH /users/me` (liste blanche de champs).
 - [ ] Tests : mauvais mot de passe, compte désactivé, token altéré/expiré/mauvaise audience, refresh rejoué, renouvellements concurrents, mauvais transport, accès après révocation, absence de hash/token en réponse et en logs.

@@ -2,7 +2,7 @@ import type { Express } from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { hashRefreshToken } from '../../src/modules/auth/tokens.js';
-import { mobileLoginRequest, registerUser, setCookies, TEST_PASSWORD, webLoginRequest } from '../helpers/auth.js';
+import { cookieValue, mobileLoginRequest, registerUser, setCookies, TEST_PASSWORD, webLoginRequest } from '../helpers/auth.js';
 import { buildTestApp } from '../helpers/testApp.js';
 import { createTestPrisma, truncateAll } from '../helpers/testDb.js';
 
@@ -43,8 +43,9 @@ describe('POST /api/v1/auth/login (Web, API-02)', () => {
       role: 'USER',
       createdAt: user.createdAt,
     });
-    const [cookie, ...others] = setCookies(res);
-    expect(others).toEqual([]);
+    const cookies = setCookies(res);
+    expect(cookies.map((c) => c.split('=')[0]).sort()).toEqual(['mp_csrf', 'mp_refresh']);
+    const cookie = cookies.find((c) => c.startsWith('mp_refresh='));
     expect(cookie).toMatch(/^mp_refresh=[A-Za-z0-9_-]{43};/);
     const attributes = (cookie ?? '').split('; ').slice(1);
     expect(attributes).toEqual(expect.arrayContaining(['Max-Age=604800', 'Path=/api/v1/auth', 'HttpOnly', 'Secure', 'SameSite=Strict']));
@@ -54,7 +55,7 @@ describe('POST /api/v1/auth/login (Web, API-02)', () => {
   it('stores only the hash of the refresh token it sets', async () => {
     const user = await registerUser(app);
     const res = await webLoginRequest(app, user.email, TEST_PASSWORD);
-    const token = /^mp_refresh=([^;]+)/.exec(setCookies(res)[0] ?? '')?.[1] ?? '';
+    const token = cookieValue(setCookies(res), 'mp_refresh') ?? '';
     const rows = await prisma.session.findMany({ where: { userId: user.id } });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.refreshTokenHash).toBe(hashRefreshToken(token));

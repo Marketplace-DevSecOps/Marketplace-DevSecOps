@@ -28,3 +28,26 @@ export const REFRESH_COOKIE_OPTIONS: CookieOptions = { ...REFRESH_COOKIE_ATTRIBU
 
 /** For res.clearCookie: same attributes, no Max-Age (Express sets an expiry in 1970). */
 export const REFRESH_COOKIE_CLEAR_OPTIONS: CookieOptions = { ...REFRESH_COOKIE_ATTRIBUTES };
+
+/**
+ * CSRF double-submit cookie. Not HttpOnly on purpose: the SPA reads it and
+ * echoes it in X-CSRF-Token. Path=/ so the SPA's pages can read it; it carries
+ * no credential (an HMAC bound to the session family, see csrf.ts).
+ */
+export const CSRF_COOKIE = 'mp_csrf';
+
+const CSRF_COOKIE_ATTRIBUTES = {
+  httpOnly: false,
+  secure: true,
+  sameSite: 'strict',
+  path: '/',
+} as const satisfies CookieOptions;
+
+export const CSRF_COOKIE_OPTIONS: CookieOptions = { ...CSRF_COOKIE_ATTRIBUTES, maxAge: REFRESH_TOKEN_TTL_MS };
+
+export const CSRF_COOKIE_CLEAR_OPTIONS: CookieOptions = { ...CSRF_COOKIE_ATTRIBUTES };
+
+/** Cookie options that expire with the session family (used on refresh). */
+export function untilExpiry(options: CookieOptions, expiresAt: Date, now: Date = new Date()): CookieOptions {
+  return { ...options, maxAge: Math.max(0, expiresAt.getTime() - now.getTime()) };
+}

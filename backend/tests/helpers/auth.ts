@@ -56,6 +56,20 @@ export function cookieValue(cookies: readonly string[], name: string): string | 
   return cookiePair(cookies, name)?.slice(name.length + 1);
 }
 
+/** Cookie header and CSRF header a browser SPA would send after a Web login. */
+export function webCredentials(cookies: readonly string[]): { cookie: string; csrf: string } {
+  const refresh = cookiePair(cookies, 'mp_refresh');
+  const csrf = cookiePair(cookies, 'mp_csrf');
+  if (refresh === undefined || csrf === undefined) throw new Error('missing web session cookies');
+  return { cookie: `${refresh}; ${csrf}`, csrf: csrf.slice('mp_csrf='.length) };
+}
+
+/** POST to a Web cookie route (refresh/logout) the way the SPA does it. */
+export function webCookieRequest(app: Express, path: '/auth/refresh' | '/auth/logout', cookies: readonly string[]) {
+  const { cookie, csrf } = webCredentials(cookies);
+  return request(app).post(`/api/v1${path}`).set('Origin', ALLOWED_ORIGIN).set('Cookie', cookie).set('X-CSRF-Token', csrf);
+}
+
 export async function webLogin(app: Express, email: string, password: string = TEST_PASSWORD) {
   const res = await webLoginRequest(app, email, password);
   if (res.status !== 200) throw new Error(`web login failed with ${String(res.status)}`);

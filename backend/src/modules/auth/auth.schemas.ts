@@ -66,6 +66,16 @@ const loginPassword = z
 export const loginBody = z.object({ email: loginEmail, password: loginPassword });
 export type LoginInput = z.output<typeof loginBody>;
 
+/** Opaque refresh token as issued (43 base64url characters); a little slack, bounded. */
+export const refreshToken = z
+  .string()
+  .min(1)
+  .max(256)
+  .regex(/^[A-Za-z0-9_-]+$/);
+
+/** Mobile refresh/logout body (API-03). The token is only ever read from here on mobile routes. */
+export const refreshBody = z.object({ refreshToken });
+
 /** Key used by the login quota: the same normalization as loginEmail, applied before validation. */
 export function normalizeLoginEmail(value: unknown): string {
   return typeof value === 'string' ? value.slice(0, 320).trim().toLowerCase() : '';

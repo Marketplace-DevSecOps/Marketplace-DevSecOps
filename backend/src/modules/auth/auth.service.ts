@@ -10,10 +10,24 @@ import { ACCESS_TOKEN_TTL_SECONDS, type AccessTokenService } from './tokens.js';
 export interface LoginResult {
   user: CurrentUserDto;
   sessionId: string;
+  /** Rotation family; the Web CSRF token is bound to it. */
+  familyId: string;
   accessToken: string;
   /** Access token lifetime in seconds. */
   expiresIn: number;
   /** Plaintext refresh token: sent to the client once, never stored or logged. */
+  refreshToken: string;
+}
+
+/** A rotated session (API-03). */
+export interface RefreshResult {
+  userId: string;
+  sessionId: string;
+  familyId: string;
+  /** Absolute family expiry, inherited from the login. */
+  expiresAt: Date;
+  accessToken: string;
+  expiresIn: number;
   refreshToken: string;
 }
 
@@ -25,10 +39,18 @@ export interface AuthService {
    * verification each, so neither the body nor the timing tells them apart.
    */
   login(input: LoginInput): Promise<LoginResult>;
+  /** Session family of a refresh token (any state), or null when unknown. */
+  findFamily(refreshToken: string): Promise<string | null>;
+  /** Rotates the refresh token (sessions.service rules: 409 in the grace window, 401 otherwise). */
+  refresh(refreshToken: string): Promise<RefreshResult>;
+  /** Revokes the whole family (idempotent). */
+  revokeFamily(familyId: string): Promise<void>;
+  /** Mobile logout: revokes the family of the token if it is known; never fails for an unknown token. */
+  logout(refreshToken: string): Promise<void>;
 }
 
 export interface AuthServiceDependencies {
-  sessions: Pick<SessionsService, 'createSession'>;
+  sessions: Pick<SessionsService, 'createSession' | 'rotate' | 'findByRefreshToken' | 'revokeFamily'>;
   tokens: Pick<AccessTokenService, 'sign'>;
 }
 
@@ -68,10 +90,38 @@ export function createAuthService(
       return {
         user: toCurrentUserDto(row),
         sessionId: session.id,
+        familyId: session.familyId,
         accessToken: token,
         expiresIn: ACCESS_TOKEN_TTL_SECONDS,
         refreshToken,
       };
+    },
+
+    async findFamily(refreshToken) {
+      return (await sessions.findByRefreshToken(refreshToken))?.familyId ?? null;
+    },
+
+    async refresh(refreshToken) {
+      const { session, refreshToken: next } = await sessions.rotate(refreshToken);
+      const { token } = await tokens.sign({ userId: session.userId, sessionId: session.id });
+      return {
+        userId: session.userId,
+        sessionId: session.id,
+        familyId: session.familyId,
+        expiresAt: session.expiresAt,
+        accessToken: token,
+        expiresIn: ACCESS_TOKEN_TTL_SECONDS,
+        refreshToken: next,
+      };
+    },
+
+    async revokeFamily(familyId) {
+      await sessions.revokeFamily(familyId);
+    },
+
+    async logout(refreshToken) {
+      const session = await sessions.findByRefreshToken(refreshToken);
+      if (session !== null) await sessions.revokeFamily(session.familyId);
     },
   };
 }

@@ -38,6 +38,9 @@ function setup(row: CredentialsRow | null, { valid = true, rehash = false } = {}
       },
       refreshToken: 'refresh-token',
     })),
+    rotate: vi.fn(),
+    findByRefreshToken: vi.fn(),
+    revokeFamily: vi.fn(),
   };
   const tokens = { sign: vi.fn(async () => ({ token: 'access-token', expiresAt: new Date() })) };
   const service = createAuthService(repository, passwords, { sessions, tokens });
@@ -85,6 +88,7 @@ describe('auth service login', () => {
     expect(result).toEqual({
       user: { id: ROW.id, email: ROW.email, displayName: ROW.displayName, role: 'USER', createdAt: '2026-01-01T00:00:00.000Z' },
       sessionId: '22222222-2222-4222-8222-222222222222',
+      familyId: '33333333-3333-4333-8333-333333333333',
       accessToken: 'access-token',
       expiresIn: 600,
       refreshToken: 'refresh-token',

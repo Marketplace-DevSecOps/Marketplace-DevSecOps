@@ -60,3 +60,66 @@ same error.
   (log keys containing `password` are redacted) or returned.
 - `passwordHash` never leaves the repository layer: no DTO exposes it.
 - `verifyPassword` returns false, never throws, on a malformed stored hash.
+
+## Access token
+
+Module: `backend/src/modules/auth/tokens.ts`.
+
+| Item | Value |
+|---|---|
+| Format | JWT signed with `jose`, header `{ "alg": "HS256", "typ": "JWT" }` |
+| Algorithm allowlist | `HS256` only (`algorithms: ['HS256']`); `none`, other HMAC sizes and asymmetric algorithms are refused |
+| Claims | `sub` (user id), `sid` (session id), `iss`, `aud`, `iat`, `exp`. Nothing else: the role is read from the database on each request |
+| Lifetime | 600 s (`exp - iat`), also enforced with `maxTokenAge`, so a token forged with a far `exp` is still refused; no clock tolerance |
+| Verification | signature, `alg`, `iss` = `JWT_ISSUER`, `aud` = `JWT_AUDIENCE`, `exp`, required `sub`/`sid`/`iat`/`exp` as strings. Any failure is the same `InvalidTokenError` (no reason leaks to the client) |
+| Key | `JWT_ACCESS_SECRET`, required, at least 32 characters; in production a value containing `change-me` or `test-only` is refused at startup |
+
+HS256 rather than EdDSA: the same process signs and verifies, so a public key would bring
+no distribution benefit. Every protected request also checks the `Session` row
+(`findActiveSession`): not revoked, not expired, owned by `sub`, user `ACTIVE`. Revoking a
+family therefore stops its access tokens immediately, before `exp`.
+
+## Refresh token
+
+Modules: `tokens.ts`, `sessions.repository.ts`, `sessions.service.ts`.
+
+- Opaque value: 32 bytes from `crypto.randomBytes`, base64url (43 characters).
+- Stored only as its SHA-256 hex digest in `Session.refreshTokenHash` (unique). A fast hash
+  is enough because the token has 256 bits of entropy.
+- Lifetime: 7 days from login. Each login starts a family (`familyId`, random UUID). Rotated
+  successors inherit the family's `expiresAt`, so a user re-authenticates at least weekly.
+- Rotation runs in one `prisma.$transaction`: a conditional
+  `UPDATE ... SET usedAt = now WHERE id = ? AND usedAt IS NULL AND revokedAt IS NULL`
+  claims the row, the successor is created in the same family, and the old row's
+  `replacedById` points to it. The conditional update takes the row lock, so under Read
+  Committed two concurrent rotations cannot both succeed.
+- Refused without any change: unknown token, expired token, user not `ACTIVE` (401).
+- Presenting a revoked token: 401, and the family is revoked again (no-op if already done).
+
+### Concurrent refresh policy
+
+Spec 3.3 asks to avoid both accidental revocation and an uncontrolled replay window when a
+client sends the same refresh token twice (two tabs, a retry after a lost response).
+
+Decision: **10 s grace window, `409 CONFLICT`, no revocation** (`REFRESH_REUSE_GRACE_MS`).
+
+| Presented token | Result |
+|---|---|
+| Unused, valid | 200, rotated (new refresh token) |
+| Used at most 10 s ago (concurrent duplicate or quick retry) | `409 CONFLICT`, no token issued, family kept |
+| Used more than 10 s ago (reuse) | `401 UNAUTHORIZED`, every session of the family revoked |
+| Revoked | `401 UNAUTHORIZED`, family revoked |
+| Expired, unknown, user disabled | `401 UNAUTHORIZED`, nothing revoked |
+
+Why this opens no replay window: the loser of a race receives nothing it can use, and the
+winner's new token is the only live one. An attacker replaying a stolen, already-rotated
+token inside the 10 s window only gets 409; after it, the replay kills the family.
+Client handling: on 409 the Web client retries with the cookie set by the winning
+request (the cookie jar is shared between tabs); the mobile client already coalesces
+refreshes and, on 409, re-reads the token saved in SecureStore.
+
+Tests: `backend/tests/integration/sessions.test.ts` (two concurrent rotations of one token
+give exactly one success and one 409, family intact; replay after the window revokes the
+family; revoked, expired, disabled-user and unknown tokens).
+
+Follow-up (Phase 7): expired `Session` rows are not purged yet.

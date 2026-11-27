@@ -12,6 +12,47 @@ function configErrorOf(env: Record<string, string | undefined>): ConfigError {
   throw new Error('expected parseConfig to throw');
 }
 
+/** Production needs a non-placeholder JWT secret. */
+const PRODUCTION = { NODE_ENV: 'production', JWT_ACCESS_SECRET: 'Zq3vN8pL2xW7cR5tY1uI9oP4aS6dF0gH' } as const;
+
+describe('JWT settings', () => {
+  it('defaults the issuer and audience', () => {
+    const config = parseConfig(TEST_ENV);
+    expect(config.JWT_ISSUER).toBe('marketplace-api');
+    expect(config.JWT_AUDIENCE).toBe('marketplace-clients');
+    expect(config.JWT_ACCESS_SECRET).toBe(TEST_ENV.JWT_ACCESS_SECRET);
+  });
+
+  it('accepts a custom issuer and audience', () => {
+    const config = parseConfig({ ...TEST_ENV, JWT_ISSUER: 'iss-x', JWT_AUDIENCE: 'aud-y' });
+    expect([config.JWT_ISSUER, config.JWT_AUDIENCE]).toEqual(['iss-x', 'aud-y']);
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['empty', ''],
+    ['31 characters', 'x'.repeat(31)],
+  ])('rejects a %s JWT_ACCESS_SECRET without printing it', (_label, secret) => {
+    const error = configErrorOf({ ...TEST_ENV, JWT_ACCESS_SECRET: secret });
+    expect(error.issues).toHaveLength(1);
+    expect(error.issues[0]).toMatch(/^JWT_ACCESS_SECRET /);
+    if (secret) expect(error.message).not.toContain(secret);
+  });
+
+  it('accepts a 32 character secret', () => {
+    expect(() => parseConfig({ ...TEST_ENV, JWT_ACCESS_SECRET: 'x'.repeat(32) })).not.toThrow();
+  });
+
+  it.each(['change-me-local-only-access-secret-0123456789', TEST_ENV.JWT_ACCESS_SECRET])(
+    'rejects the placeholder %s only in production',
+    (secret) => {
+      expect(() => parseConfig({ ...TEST_ENV, NODE_ENV: 'development', JWT_ACCESS_SECRET: secret })).not.toThrow();
+      const error = configErrorOf({ ...TEST_ENV, ...PRODUCTION, JWT_ACCESS_SECRET: secret });
+      expect(error.issues).toEqual(['JWT_ACCESS_SECRET must not be a placeholder value when NODE_ENV=production']);
+    },
+  );
+});
+
 describe('parseConfig', () => {
   it('parses a valid environment and applies defaults', () => {
     const config = parseConfig({ ...TEST_ENV, CORS_ORIGINS: 'http://localhost:5173, https://app.example.com' });
@@ -31,7 +72,7 @@ describe('parseConfig', () => {
   });
 
   it('rejects TRUST_PROXY=true in production', () => {
-    const error = configErrorOf({ ...TEST_ENV, NODE_ENV: 'production', TRUST_PROXY: 'true' });
+    const error = configErrorOf({ ...TEST_ENV, ...PRODUCTION, TRUST_PROXY: 'true' });
     expect(error.issues).toHaveLength(1);
     expect(error.issues[0]).toMatch(/^TRUST_PROXY /);
   });
@@ -41,13 +82,13 @@ describe('parseConfig', () => {
     ['2', 2],
     ['10.0.0.1, 192.168.0.0/16', ['10.0.0.1', '192.168.0.0/16']],
   ])('accepts TRUST_PROXY=%s in production', (value, expected) => {
-    expect(parseConfig({ ...TEST_ENV, NODE_ENV: 'production', TRUST_PROXY: value }).TRUST_PROXY).toEqual(expected);
+    expect(parseConfig({ ...TEST_ENV, ...PRODUCTION, TRUST_PROXY: value }).TRUST_PROXY).toEqual(expected);
   });
 
   it.each(['0.0.0.0/0', '::/0', '0.0.0.0/1,128.0.0.0/1', '10.0.0.0/7', 'loopback, 2001::/15', '4', '100'])(
     'rejects TRUST_PROXY=%s in production',
     (value) => {
-      const error = configErrorOf({ ...TEST_ENV, NODE_ENV: 'production', TRUST_PROXY: value });
+      const error = configErrorOf({ ...TEST_ENV, ...PRODUCTION, TRUST_PROXY: value });
       expect(error.issues).toHaveLength(1);
       expect(error.issues[0]).toMatch(/^TRUST_PROXY /);
     },
@@ -60,7 +101,7 @@ describe('parseConfig', () => {
     ['loopback', ['loopback']],
     ['fd00::/16', ['fd00::/16']],
   ])('accepts TRUST_PROXY=%s at the production limits', (value, expected) => {
-    expect(parseConfig({ ...TEST_ENV, NODE_ENV: 'production', TRUST_PROXY: value }).TRUST_PROXY).toEqual(expected);
+    expect(parseConfig({ ...TEST_ENV, ...PRODUCTION, TRUST_PROXY: value }).TRUST_PROXY).toEqual(expected);
   });
 
   it.each([

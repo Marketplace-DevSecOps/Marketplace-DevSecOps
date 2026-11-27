@@ -14,6 +14,7 @@ export const TEST_ENV = {
   TRUST_PROXY: 'false',
   DATABASE_URL: 'postgresql://user:pass@localhost:5432/marketplace_dev',
   DATABASE_URL_TEST: 'postgresql://user:pass@localhost:5433/marketplace_test',
+  JWT_ACCESS_SECRET: 'test-only-access-secret-0123456789abcdef',
 } as const;
 
 export interface TestAppOptions {

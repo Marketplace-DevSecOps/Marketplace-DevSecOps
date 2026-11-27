@@ -55,6 +55,10 @@ function isOverBroadSubnet(entry: string): boolean {
   return Number(prefix) < (isIP(address) === 4 ? MIN_IPV4_PREFIX : MIN_IPV6_PREFIX);
 }
 
+const MIN_JWT_SECRET_LENGTH = 32;
+// Markers used by .env.example and the test setup; production refuses them.
+const PLACEHOLDER_SECRET_MARKERS = ['change-me', 'test-only'];
+
 const corsOrigins = z
   .string({ error: 'is required (comma-separated list of origins, may be empty)' })
   .transform((raw, ctx) => {
@@ -129,6 +133,13 @@ const configSchema = z
       .default('64kb'),
     DATABASE_URL: postgresUrl,
     DATABASE_URL_TEST: postgresUrl.optional(),
+    // HS256 key for access tokens. 32+ characters; generate with
+    // `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`.
+    JWT_ACCESS_SECRET: z
+      .string({ error: `is required (at least ${String(MIN_JWT_SECRET_LENGTH)} characters)` })
+      .min(MIN_JWT_SECRET_LENGTH, { error: `must be at least ${String(MIN_JWT_SECRET_LENGTH)} characters` }),
+    JWT_ISSUER: z.string().trim().min(1).max(100).default('marketplace-api'),
+    JWT_AUDIENCE: z.string().trim().min(1).max(100).default('marketplace-clients'),
   })
   .superRefine((config, ctx) => {
     if (config.NODE_ENV === 'test' && config.DATABASE_URL_TEST === undefined) {
@@ -154,6 +165,16 @@ const configSchema = z
         code: 'custom',
         path: ['TRUST_PROXY'],
         message: `must not contain subnets broader than /${String(MIN_IPV4_PREFIX)} (IPv4) or /${String(MIN_IPV6_PREFIX)} (IPv6) when NODE_ENV=production`,
+      });
+    }
+    if (
+      config.NODE_ENV === 'production' &&
+      PLACEHOLDER_SECRET_MARKERS.some((marker) => config.JWT_ACCESS_SECRET.toLowerCase().includes(marker))
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['JWT_ACCESS_SECRET'],
+        message: 'must not be a placeholder value when NODE_ENV=production',
       });
     }
     if (config.DATABASE_URL_TEST !== undefined && config.DATABASE_URL_TEST === config.DATABASE_URL) {

@@ -96,8 +96,11 @@ describe('access token verification on GET /users/me', () => {
 
   it('refuses a tampered signature', async () => {
     const { accessToken } = await signedIn();
-    const last = accessToken.slice(-1) === 'A' ? 'B' : 'A';
-    expectNeutral401(await me(`${accessToken.slice(0, -1)}${last}`));
+    // Change the first signature character: the last one carries only 4 significant bits of the
+    // 32-byte HMAC, so swapping it (e.g. A <-> B) can decode to the same bytes and stay valid.
+    const [header, payload, signature = ''] = accessToken.split('.');
+    const first = signature.startsWith('A') ? 'B' : 'A';
+    expectNeutral401(await me(`${header ?? ''}.${payload ?? ''}.${first}${signature.slice(1)}`));
   });
 
   it.each<[string, ForgeOptions]>([

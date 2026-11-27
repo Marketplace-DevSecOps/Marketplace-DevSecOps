@@ -65,7 +65,7 @@ Correctifs revue Phase 2 :
 - [x] Web : cookie `HttpOnly; Secure; SameSite; Path` limité + contrôle Origin + CSRF. Mobile : refresh dans le corps, `Cache-Control: no-store`, aucun cookie accepté.
 - [x] `POST /auth/refresh|logout` et variantes mobiles.
 - [x] Middleware d'authentification vérifiant la session active en base.
-- [ ] `GET/PATCH /users/me` (liste blanche de champs).
+- [x] `GET/PATCH /users/me` (liste blanche de champs).
 - [ ] Tests : mauvais mot de passe, compte désactivé, token altéré/expiré/mauvaise audience, refresh rejoué, renouvellements concurrents, mauvais transport, accès après révocation, absence de hash/token en réponse et en logs.
 
 ## Phase 4 — Catalogue et annonces (API-05 à API-08) `[ ]`

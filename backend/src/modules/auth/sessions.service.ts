@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Role } from '../../generated/prisma/client.js';
 import { AppError } from '../../middlewares/errors.js';
+import { createSessionEvents, type RevocationReason, type SessionEvents } from './session-events.js';
 import type { SessionRecord, SessionsRepository } from './sessions.repository.js';
 import { generateRefreshToken, hashRefreshToken, REFRESH_TOKEN_TTL_MS } from './tokens.js';
 
@@ -29,20 +30,35 @@ export interface SessionsService {
    */
   rotate(refreshToken: string): Promise<IssuedSession>;
   findByRefreshToken(refreshToken: string): Promise<SessionRecord | null>;
-  /** Revokes every session of the family; returns the ids newly revoked. */
-  revokeFamily(familyId: string): Promise<string[]>;
+  /**
+   * Revokes every session of the family; returns the ids newly revoked and,
+   * when there are any, emits a `revoked` session event (default reason: logout).
+   */
+  revokeFamily(familyId: string, reason?: RevocationReason): Promise<string[]>;
   /** Session check behind every protected request (role read from the DB). */
   findActiveSession(sessionId: string, userId: string): Promise<{ userId: string; role: Role } | null>;
 }
 
 export interface SessionsServiceOptions {
   now?: () => Date;
+  /** Revocation hook for realtime (Phase 5); a private instance when omitted. */
+  events?: SessionEvents;
 }
 
 export function createSessionsService(
   repository: SessionsRepository,
-  { now = () => new Date() }: SessionsServiceOptions = {},
+  { now = () => new Date(), events = createSessionEvents() }: SessionsServiceOptions = {},
 ): SessionsService {
+  /** Revokes, then emits once the write has committed (only for rows newly revoked). */
+  async function revoke(familyId: string, at: Date, reason: RevocationReason): Promise<string[]> {
+    const rows = await repository.revokeFamily(familyId, at);
+    const [first] = rows;
+    if (first !== undefined) {
+      events.emitRevoked({ userId: first.userId, familyId, sessionIds: rows.map((row) => row.id), reason });
+    }
+    return rows.map((row) => row.id);
+  }
+
   return {
     async createSession(userId) {
       const refreshToken = generateRefreshToken();
@@ -66,10 +82,10 @@ export function createSessionsService(
           if (at.getTime() - outcome.usedAt.getTime() <= REFRESH_REUSE_GRACE_MS) {
             throw new AppError('CONFLICT');
           }
-          await repository.revokeFamily(outcome.familyId, at);
+          await revoke(outcome.familyId, at, 'reuse');
           throw new AppError('UNAUTHORIZED');
         case 'revoked':
-          await repository.revokeFamily(outcome.familyId, at);
+          await revoke(outcome.familyId, at, 'reuse');
           throw new AppError('UNAUTHORIZED');
         default:
           throw new AppError('UNAUTHORIZED');
@@ -80,8 +96,8 @@ export function createSessionsService(
       return repository.findByTokenHash(hashRefreshToken(refreshToken));
     },
 
-    revokeFamily(familyId) {
-      return repository.revokeFamily(familyId, now());
+    revokeFamily(familyId, reason = 'logout') {
+      return revoke(familyId, now(), reason);
     },
 
     async findActiveSession(sessionId, userId) {

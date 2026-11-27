@@ -8,6 +8,7 @@ import { getPrisma } from '../infrastructure/prisma.js';
 import { correlationId } from '../middlewares/correlationId.js';
 import { cors } from '../middlewares/cors.js';
 import { errorHandler, notFoundHandler } from '../middlewares/errors.js';
+import { createSessionEvents, type SessionEvents } from '../modules/auth/session-events.js';
 import { createApiRouter } from './routes.js';
 
 export interface AppOptions {
@@ -17,10 +18,18 @@ export interface AppOptions {
   prisma?: PrismaClient;
   /** Hook to register extra routes on the /api/v1 router (used by tests only). */
   extendApiRouter?: (router: Router) => void;
+  /** Session revocation events; Phase 5 realtime subscribes to the same instance. */
+  sessionEvents?: SessionEvents;
 }
 
 /** Builds the Express application without listening, so tests can drive it with Supertest. */
-export function createApp({ config, logger, prisma = getPrisma(config), extendApiRouter }: AppOptions): Express {
+export function createApp({
+  config,
+  logger,
+  prisma = getPrisma(config),
+  extendApiRouter,
+  sessionEvents = createSessionEvents({ logger }),
+}: AppOptions): Express {
   const app = express();
 
   app.disable('x-powered-by');
@@ -54,7 +63,7 @@ export function createApp({ config, logger, prisma = getPrisma(config), extendAp
   // 7. Validation (Zod) and authorization: route-level middleware per endpoint.
 
   // 8. Versioned API router.
-  const apiRouter = createApiRouter({ prisma, config });
+  const apiRouter = createApiRouter({ prisma, config, sessionEvents });
   extendApiRouter?.(apiRouter);
   app.use('/api/v1', apiRouter);
 

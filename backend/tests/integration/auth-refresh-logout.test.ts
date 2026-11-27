@@ -3,6 +3,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { parseConfig } from '../../src/infrastructure/config.js';
 import { createRequireAuth, getAuth } from '../../src/middlewares/requireAuth.js';
+import { createSessionEvents, type SessionRevokedEvent } from '../../src/modules/auth/session-events.js';
 import { createSessionsRepository } from '../../src/modules/auth/sessions.repository.js';
 import { createSessionsService, REFRESH_REUSE_GRACE_MS } from '../../src/modules/auth/sessions.service.js';
 import { createAccessTokenService, hashRefreshToken } from '../../src/modules/auth/tokens.js';
@@ -98,7 +99,7 @@ describe('POST /api/v1/auth/refresh (Web, API-03)', () => {
     expect(second.status).toBe(200);
   });
 
-  it('ignores a refresh token sent in the body (wrong transport) → 401', async () => {
+  it('ignores a refresh token sent in the body (wrong transport) -> 401', async () => {
     const user = await registerUser(app);
     const { refreshToken } = await mobileLogin(app, user.email);
     const res = await request(app).post('/api/v1/auth/refresh').set('Origin', ALLOWED_ORIGIN).send({ refreshToken });
@@ -253,4 +254,29 @@ describe('POST /api/v1/auth/mobile/refresh and /auth/mobile/logout (API-03)', ()
       expect((await mobilePost('/auth/mobile/refresh', body)).status).toBe(400);
     },
   );
+});
+
+describe('logout emits the session revocation event used by realtime (Phase 5)', () => {
+  it('web and mobile logout each emit one logout event; repeating emits nothing', async () => {
+    const events = createSessionEvents();
+    const received: SessionRevokedEvent[] = [];
+    events.onRevoked((event) => {
+      received.push(event);
+    });
+    const { app: observed } = buildTestApp({ prisma, sessionEvents: events });
+    const user = await registerUser(observed);
+
+    const { cookies } = await webLogin(observed, user.email);
+    expect((await webCookieRequest(observed, '/auth/logout', cookies)).status).toBe(204);
+    expect((await webCookieRequest(observed, '/auth/logout', cookies)).status).toBe(204);
+    const { refreshToken } = await mobileLogin(observed, user.email);
+    await request(observed).post('/api/v1/auth/mobile/logout').send({ refreshToken });
+    await request(observed).post('/api/v1/auth/mobile/logout').send({ refreshToken });
+
+    expect(received.map((event) => [event.reason, event.userId, event.sessionIds.length])).toEqual([
+      ['logout', user.id, 1],
+      ['logout', user.id, 1],
+    ]);
+    expect(received[1]?.familyId).toBe((await sessionOf(refreshToken)).familyId);
+  });
 });

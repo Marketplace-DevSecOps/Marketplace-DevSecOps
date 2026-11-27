@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AppError } from '../../src/middlewares/errors.js';
+import { createSessionEvents, type SessionRevokedEvent } from '../../src/modules/auth/session-events.js';
 import { createSessionsRepository } from '../../src/modules/auth/sessions.repository.js';
 import { createSessionsService, REFRESH_REUSE_GRACE_MS } from '../../src/modules/auth/sessions.service.js';
 import { hashRefreshToken, REFRESH_TOKEN_TTL_MS } from '../../src/modules/auth/tokens.js';
@@ -201,5 +202,55 @@ describe('findActiveSession (access token check)', () => {
 
     await prisma.user.update({ where: { id: user.id }, data: { status: 'DISABLED' } });
     expect(await sessions.findActiveSession(active.session.id, user.id)).toBeNull();
+  });
+});
+
+describe('session revocation events (realtime hook)', () => {
+  function withEvents() {
+    const events = createSessionEvents();
+    const received: SessionRevokedEvent[] = [];
+    events.onRevoked((event) => {
+      received.push(event);
+    });
+    return { service: createSessionsService(repository, { events }), received };
+  }
+
+  it('reuse detection emits one reuse event with every session of the family', async () => {
+    const { service, received } = withEvents();
+    const user = await createUser();
+    const { session, refreshToken } = await service.createSession(user.id);
+    const next = await service.rotate(refreshToken);
+    await prisma.session.update({
+      where: { id: session.id },
+      data: { usedAt: new Date(Date.now() - REFRESH_REUSE_GRACE_MS - 1_000) },
+    });
+
+    await expectAppError(service.rotate(refreshToken), 'UNAUTHORIZED');
+
+    expect(received).toHaveLength(1);
+    expect(received[0]?.reason).toBe('reuse');
+    expect(received[0]?.userId).toBe(user.id);
+    expect(received[0]?.familyId).toBe(session.familyId);
+    expect([...(received[0]?.sessionIds ?? [])].sort()).toEqual([session.id, next.session.id].sort());
+  });
+
+  it('revokeFamily emits logout by default, and nothing when the family is already revoked', async () => {
+    const { service, received } = withEvents();
+    const user = await createUser();
+    const { session } = await service.createSession(user.id);
+
+    await service.revokeFamily(session.familyId);
+    await service.revokeFamily(session.familyId);
+
+    expect(received).toEqual([{ userId: user.id, familyId: session.familyId, sessionIds: [session.id], reason: 'logout' }]);
+  });
+
+  it('a duplicate within the grace window emits nothing', async () => {
+    const { service, received } = withEvents();
+    const user = await createUser();
+    const { refreshToken } = await service.createSession(user.id);
+    await service.rotate(refreshToken);
+    await expectAppError(service.rotate(refreshToken), 'CONFLICT');
+    expect(received).toEqual([]);
   });
 });

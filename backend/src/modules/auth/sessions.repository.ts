@@ -20,8 +20,8 @@ export interface SessionsRepository {
    * otherwise the outcome says why and nothing is written.
    */
   rotate(currentHash: string, nextHash: string, now: Date): Promise<RotateOutcome>;
-  /** Sets revokedAt on every unrevoked session of the family; returns their ids. */
-  revokeFamily(familyId: string, now: Date): Promise<string[]>;
+  /** Sets revokedAt on every unrevoked session of the family; returns those rows. */
+  revokeFamily(familyId: string, now: Date): Promise<{ id: string; userId: string }[]>;
   /** Session usable for an access token: not revoked, not expired, owned by `userId`, user ACTIVE. */
   findActive(sessionId: string, userId: string, now: Date): Promise<{ userId: string; role: Role } | null>;
 }
@@ -89,13 +89,12 @@ export function createSessionsRepository(prisma: PrismaClient): SessionsReposito
       });
     },
 
-    async revokeFamily(familyId, now) {
-      const rows = await prisma.session.updateManyAndReturn({
+    revokeFamily(familyId, now) {
+      return prisma.session.updateManyAndReturn({
         where: { familyId, revokedAt: null },
         data: { revokedAt: now },
-        select: { id: true },
+        select: { id: true, userId: true },
       });
-      return rows.map((row) => row.id);
     },
 
     async findActive(sessionId, userId, now) {

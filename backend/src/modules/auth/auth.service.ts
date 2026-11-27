@@ -116,12 +116,12 @@ export function createAuthService(
     },
 
     async revokeFamily(familyId) {
-      await sessions.revokeFamily(familyId);
+      await sessions.revokeFamily(familyId, 'logout');
     },
 
     async logout(refreshToken) {
       const session = await sessions.findByRefreshToken(refreshToken);
-      if (session !== null) await sessions.revokeFamily(session.familyId);
+      if (session !== null) await sessions.revokeFamily(session.familyId, 'logout');
     },
   };
 }

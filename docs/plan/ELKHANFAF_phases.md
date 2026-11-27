@@ -66,6 +66,7 @@ Correctifs revue Phase 2 :
 - [x] `POST /auth/refresh|logout` et variantes mobiles.
 - [x] Middleware d'authentification vérifiant la session active en base.
 - [x] `GET/PATCH /users/me` (liste blanche de champs).
+- [x] Crochet de révocation de session (Socket.IO, phase 5) : événement `revoked` émis à la déconnexion et à la détection de réutilisation.
 - [ ] Tests : mauvais mot de passe, compte désactivé, token altéré/expiré/mauvaise audience, refresh rejoué, renouvellements concurrents, mauvais transport, accès après révocation, absence de hash/token en réponse et en logs.
 
 ## Phase 4 — Catalogue et annonces (API-05 à API-08) `[ ]`

@@ -4,6 +4,7 @@ import { createApp } from '../../src/app/createApp.js';
 import type { PrismaClient } from '../../src/generated/prisma/client.js';
 import { parseConfig } from '../../src/infrastructure/config.js';
 import { createLogger } from '../../src/infrastructure/logger.js';
+import type { SessionEvents } from '../../src/modules/auth/session-events.js';
 
 export const ALLOWED_ORIGIN = 'http://localhost:5173';
 
@@ -24,9 +25,11 @@ export interface TestAppOptions {
   prisma?: PrismaClient;
   /** When true, logs are captured in memory instead of being discarded. */
   captureLogs?: boolean;
+  /** Session revocation events, to observe what realtime (Phase 5) will receive. */
+  sessionEvents?: SessionEvents;
 }
 
-export function buildTestApp({ env = {}, extendApiRouter, prisma, captureLogs = false }: TestAppOptions = {}) {
+export function buildTestApp({ env = {}, extendApiRouter, prisma, captureLogs = false, sessionEvents }: TestAppOptions = {}) {
   const config = parseConfig({ ...TEST_ENV, ...(captureLogs ? { LOG_LEVEL: 'info' } : {}), ...env });
   const lines: string[] = [];
   const stream = new Writable({
@@ -41,6 +44,7 @@ export function buildTestApp({ env = {}, extendApiRouter, prisma, captureLogs = 
     logger,
     ...(prisma ? { prisma } : {}),
     ...(extendApiRouter ? { extendApiRouter } : {}),
+    ...(sessionEvents ? { sessionEvents } : {}),
   });
   return { app, logger, logs: () => lines.join('') };
 }

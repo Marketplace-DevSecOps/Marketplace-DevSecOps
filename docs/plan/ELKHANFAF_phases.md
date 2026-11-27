@@ -41,6 +41,14 @@ Correctifs revue Phase 1 :
 - [x] `GET /api/v1/categories` (API-14) + tests (catégorie inactive exclue).
 - [x] Tests d'intégration : migrations sur base vierge, contraintes d'unicité.
 
+## Synchronisation équipe (avant Phase 3) `[~]`
+
+- [x] `docs/backend/team-sync.md` : Compose/Dockerfile et CI d'Abdelilah, contrats mobile d'Anas, recommandations.
+- [ ] Corriger `effect` (HIGH Trivy/npm audit) via `overrides` npm.
+- [ ] OpenAPI messagerie alignée sur le protocole d'Anas (`afterSeq`, `clientMessageId` UUID, normalisation du corps).
+- [ ] `.env.example` : origine Expo Web de développement dans `CORS_ORIGINS`.
+- [ ] Vérification typecheck/lint/test/build consignée dans `team-sync.md`.
+
 ## Phase 3 — Authentification, sessions et profil (API-01 à API-04) `[ ]`
 
 - [ ] Hachage Argon2id (paramètres justifiés et mesurés).

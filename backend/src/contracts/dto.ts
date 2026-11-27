@@ -37,6 +37,25 @@ export function toPublicSellerDto(row: Pick<User, 'id' | 'displayName'>): Public
   return { id: row.id, displayName: row.displayName };
 }
 
+/** The signed-in user's own account (register, /users/me, sessions). Never the password hash or status. */
+export interface CurrentUserDto {
+  id: string;
+  email: string;
+  displayName: string;
+  role: User['role'];
+  createdAt: string;
+}
+
+export function toCurrentUserDto(row: Pick<User, 'id' | 'email' | 'displayName' | 'role' | 'createdAt'>): CurrentUserDto {
+  return {
+    id: row.id,
+    email: row.email,
+    displayName: row.displayName,
+    role: row.role,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
 /** Public view of an active product listing. */
 export interface ProductDto {
   id: string;

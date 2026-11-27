@@ -59,7 +59,7 @@ Correctifs revue Phase 2 :
 - [x] Seed limité aux bases locales de dev/test (hôte, nom de base, `NODE_ENV`) + test du refus.
 
 - [x] Hachage Argon2id (paramètres justifiés et mesurés).
-- [ ] `POST /auth/register` : rôle USER forcé, rôle injecté rejeté, doublon concurrent → 409.
+- [x] `POST /auth/register` : rôle USER forcé, rôle injecté rejeté, doublon concurrent → 409.
 - [ ] `POST /auth/login` + `/auth/mobile/login` : erreur générique, quota 5 échecs/min compte+IP partagé entre variantes.
 - [ ] Jeton d'accès JWT 10 min (alg, iss, aud, exp stricts) ; refresh opaque 7 j, empreinte en base, rotation atomique, détection de réutilisation → révocation de la famille.
 - [ ] Web : cookie `HttpOnly; Secure; SameSite; Path` limité + contrôle Origin + CSRF. Mobile : refresh dans le corps, `Cache-Control: no-store`, aucun cookie accepté.

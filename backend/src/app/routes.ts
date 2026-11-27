@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { PrismaClient } from '../generated/prisma/client.js';
+import { createAuthRouter } from '../modules/auth/auth.routes.js';
 import { createCategoriesRouter } from '../modules/categories/categories.routes.js';
 import { createHealthRouter } from '../modules/health/health.routes.js';
 
@@ -11,6 +12,7 @@ export interface ApiDependencies {
 export function createApiRouter({ prisma }: ApiDependencies): Router {
   const router = Router();
   router.use(createHealthRouter());
+  router.use(createAuthRouter(prisma));
   router.use(createCategoriesRouter(prisma));
   return router;
 }

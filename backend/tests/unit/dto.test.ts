@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { serializePrice, toCategoryDto, toProductDto, toPublicSellerDto } from '../../src/contracts/dto.js';
+import { serializePrice, toCategoryDto, toCurrentUserDto, toProductDto, toPublicSellerDto } from '../../src/contracts/dto.js';
 import { Prisma } from '../../src/generated/prisma/client.js';
 
 const createdAt = new Date('2025-01-02T03:04:05.678Z');
@@ -65,6 +65,22 @@ describe('toProductDto', () => {
     for (const secret of ['passwordHash', 'argon2', 'email', 'internalNote', 'sellerId', 'version', 'status']) {
       expect(json).not.toContain(secret);
     }
+  });
+});
+
+describe('toCurrentUserDto', () => {
+  it('keeps id, email, displayName, role and createdAt only', () => {
+    const { seller } = productRow();
+    const dto = toCurrentUserDto(seller);
+
+    expect(dto).toEqual({
+      id: 'u-1',
+      email: 'seller@example.test',
+      displayName: 'Seller',
+      role: 'USER',
+      createdAt: '2025-01-02T03:04:05.678Z',
+    });
+    expect(JSON.stringify(dto)).not.toMatch(/passwordHash|argon2|status|updatedAt/);
   });
 });
 

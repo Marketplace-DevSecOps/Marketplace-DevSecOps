@@ -37,7 +37,7 @@ Correctifs revue Phase 1 :
 - [x] Middleware de validation Zod (params/query/body, `.strict()` refusant les champs inconnus).
 - [x] Conventions DTO et catalogue des codes d'erreur.
 - [x] Squelette OpenAPI couvrant API-01 à API-14.
-- [ ] `docs/backend/data-dictionary.md` (classification public/privé/secret).
+- [x] `docs/backend/data-dictionary.md` (classification public/privé/secret).
 - [ ] `GET /api/v1/categories` (API-14) + tests (catégorie inactive exclue).
 - [ ] Tests d'intégration : migrations sur base vierge, contraintes d'unicité.
 

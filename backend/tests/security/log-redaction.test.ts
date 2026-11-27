@@ -1,7 +1,9 @@
 import request from 'supertest';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { isSecretKey, REDACTED } from '../../src/infrastructure/logger.js';
+import { cookieValue, mobileLogin, registerUser, setCookies, webCookieRequest, webLogin } from '../helpers/auth.js';
 import { buildTestApp } from '../helpers/testApp.js';
+import { createTestPrisma, truncateAll } from '../helpers/testDb.js';
 
 const BEARER = 'eyJhbGciOiJIUzI1NiJ9.secret-access-token';
 const COOKIE = 'refresh=cookie-secret-value';
@@ -157,5 +159,70 @@ describe('log redaction', () => {
     const output = logs();
     expect(output).toContain('cyclic event');
     expect(output).not.toContain('cycle-password');
+  });
+});
+
+describe('log hygiene across the real auth flows', () => {
+  const prisma = createTestPrisma();
+  const PASSWORD = 'log-hygiene-password-77';
+
+  beforeAll(async () => {
+    await prisma.$connect();
+    await truncateAll(prisma);
+  });
+
+  afterAll(async () => {
+    await truncateAll(prisma);
+    await prisma.$disconnect();
+  });
+
+  it('never logs the password, access/refresh/CSRF tokens or cookie values', async () => {
+    const { app, logs } = buildTestApp({ prisma, captureLogs: true });
+    const user = await registerUser(app, { password: PASSWORD });
+
+    const failed = await request(app).post('/api/v1/auth/mobile/login').send({ email: user.email, password: `${PASSWORD}-wrong` });
+    expect(failed.status).toBe(401);
+    const web = await webLogin(app, user.email, PASSWORD);
+    const refreshed = await webCookieRequest(app, '/auth/refresh', web.cookies);
+    const csrfRejected = await request(app)
+      .post('/api/v1/auth/logout')
+      .set('Origin', 'http://localhost:5173')
+      .set('Cookie', `mp_refresh=${cookieValue(setCookies(refreshed), 'mp_refresh') ?? ''}`)
+      .set('X-CSRF-Token', 'not-the-csrf-token');
+    expect(csrfRejected.status).toBe(403);
+    await webCookieRequest(app, '/auth/logout', setCookies(refreshed));
+
+    const mobile = await mobileLogin(app, user.email, PASSWORD);
+    await request(app).get('/api/v1/users/me').set('Authorization', `Bearer ${mobile.accessToken}`);
+    await request(app).patch('/api/v1/users/me').set('Authorization', `Bearer ${mobile.accessToken}`).send({ displayName: 'Renamed' });
+    const rotated = await request(app).post('/api/v1/auth/mobile/refresh').send({ refreshToken: mobile.refreshToken });
+    // Duplicate within the grace window (409) also goes through the logs.
+    await request(app).post('/api/v1/auth/mobile/refresh').send({ refreshToken: mobile.refreshToken });
+    await request(app).post('/api/v1/auth/mobile/logout').send({ refreshToken: rotated.body.refreshToken as string });
+
+    const secrets = [
+      PASSWORD,
+      web.accessToken,
+      cookieValue(web.cookies, 'mp_refresh'),
+      cookieValue(web.cookies, 'mp_csrf'),
+      refreshed.body.accessToken as string,
+      cookieValue(setCookies(refreshed), 'mp_refresh'),
+      mobile.accessToken,
+      mobile.refreshToken,
+      rotated.body.accessToken as string,
+      rotated.body.refreshToken as string,
+    ];
+    const output = logs();
+    // The flows were logged (with ids), so the check below is meaningful.
+    for (const event of ['auth.login.succeeded', 'auth.login.failed', 'auth.refresh.succeeded', 'auth.logout', 'auth.csrf.rejected']) {
+      expect(output).toContain(event);
+    }
+    expect(output).toContain(user.id);
+    for (const secret of secrets) {
+      expect(secret, 'every secret was captured').toBeTruthy();
+      expect(output).not.toContain(secret ?? '');
+    }
+    expect(output).not.toContain(user.email);
+    expect(output).not.toMatch(/\$argon2id\$/);
   });
 });

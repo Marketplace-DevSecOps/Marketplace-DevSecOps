@@ -142,9 +142,19 @@ Details in `docs/backend/session-policy.md` and `backend/src/contracts/openapi.y
 4. Login input: password 1..128. Keep 12..128 for register (#6).
 5. Products search: `q` max 100 (#7).
 6. Optional: `refreshToken` max 256 (#5).
-7. Wait for the Phase 3 decision on the mobile session shape (#3, #4) and the Phase 5 decision on
-   `Conversation` (#8, #9) before wiring the screens.
-8. `docs/anas/client-api-mobile.md` says the backend mounts only `/health`. `/categories` is
+7. Phase 3 auth (decided, see Phase 3 decisions above and `session-policy.md`). Until these are
+   done the app rejects real login and refresh responses as `invalid_response`:
+   - Session shape (#3, #4): switch `mobileSessionSchema` to `MobileSession {accessToken,
+     expiresIn, refreshToken, user}` for login and add a `MobileTokens {accessToken, expiresIn,
+     refreshToken}` schema for refresh (no `user`); compute absolute expiry from `expiresIn`.
+     Please confirm this reversal of plan decision 12 with Mohamed before Phase 5 builds on it.
+   - Refresh `409 CONFLICT`: coalesce concurrent refreshes and, on `409`, re-read the refresh
+     token from SecureStore and retry with it. Update `mobile/src/tests/api-services.test.ts`
+     (an immediate replay of a rotated token is `409`, a replay after 10 s is `401`).
+   - Add `INVALID_CREDENTIALS` (401, "wrong credentials") to `mobile/src/services/errors.ts`,
+     distinct from `UNAUTHORIZED` (401, go to login).
+8. Wait for the Phase 5 decision on `Conversation` (#8, #9) before wiring the conversation screens.
+9. `docs/anas/client-api-mobile.md` says the backend mounts only `/health`. `/categories` is
    implemented since `3459b8c`.
 
 ### For Abdelilah (Dockerfile, docker-compose.yml, CI)

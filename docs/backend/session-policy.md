@@ -128,9 +128,14 @@ Decision: **10 s grace window, `409 CONFLICT`, no revocation** (`REFRESH_REUSE_G
 Why this opens no replay window: the loser of a race receives nothing it can use, and the
 winner's new token is the only live one. An attacker replaying a stolen, already-rotated
 token inside the 10 s window only gets 409; after it, the replay kills the family.
-Client handling: on 409 the Web client retries with the cookie set by the winning
-request (the cookie jar is shared between tabs); the mobile client already coalesces
-refreshes and, on 409, re-reads the token saved in SecureStore.
+Required client handling: on 409 the Web client retries with the cookie set by the winning
+request (the cookie jar is shared between tabs). The mobile client must coalesce refreshes
+and, on 409, re-read the token saved in SecureStore and retry with it. **Open (Anas):** the
+mobile app does not do this yet. `docs/anas/client-api-mobile.md` lists SecureStore and
+coordinated session rotation as not implemented, and `mobile/src/tests/api-services.test.ts`
+expects an immediate replay to give `unauthorized` instead of `409`. Spec 3.3 asks for this
+handling to be defined and tested with the client team, so the mobile side stays to be agreed
+and tested (see `team-sync.md`, "For Anas").
 
 Tests: `backend/tests/integration/sessions.test.ts` (two concurrent rotations of one token
 give exactly one success and one 409, family intact; replay after the window revokes the
@@ -225,9 +230,12 @@ the same auth service as the Web routes.
   credential to forge.
 - The Web routes never accept the mobile transport: a body token on `/auth/refresh` gets `401`.
 
-Client rules agreed with Anas's mobile client (`docs/anas/rest-mobile.md`, `architecture.md`):
+Client rules required from Anas's mobile client. **Not agreed yet:** these are open requirements,
+proposed by the backend and still to be confirmed and implemented by Anas. The current mobile
+code and docs (`docs/anas/rest-mobile.md`, `architecture.md`, `client-api-mobile.md`) do not
+implement them; the tracked actions are in `team-sync.md`, "For Anas".
 
-| Rule | Backend behaviour the app relies on |
+| Rule | Backend behaviour the app must handle |
 |---|---|
 | Access token in memory, refresh token in expo-secure-store | Login and refresh return both in the body; nothing in cookies |
 | Save the new refresh token before resuming requests | The previous token stops working at rotation; replaying it within 10 s is `409`, later `401` + family revoked |

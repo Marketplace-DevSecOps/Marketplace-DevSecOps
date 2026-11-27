@@ -49,12 +49,12 @@ export function createApp({ config, logger, prisma = getPrisma(config), extendAp
   // 4. Body size limit (JSON only).
   app.use(express.json({ limit: config.BODY_LIMIT, strict: true }));
 
-  // 5. Rate limiting (quotas): added in a later phase.
+  // 5. Rate limiting: route-level (login quotas in the auth router); global quotas in a later phase.
   // 6. Authentication: route-level middleware added with the auth module.
   // 7. Validation (Zod) and authorization: route-level middleware per endpoint.
 
   // 8. Versioned API router.
-  const apiRouter = createApiRouter({ prisma });
+  const apiRouter = createApiRouter({ prisma, config });
   extendApiRouter?.(apiRouter);
   app.use('/api/v1', apiRouter);
 

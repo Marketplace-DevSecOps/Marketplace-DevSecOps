@@ -34,7 +34,8 @@ Code raises errors with `new AppError(code, { message?, details? })`. The HTTP s
 | `BAD_REQUEST` | 400 | HTTP-layer rejection not covered by another code. |
 | `VALIDATION_ERROR` | 400 | Params, query or body fail the schema (unknown fields, bounds, formats), including an invalid pagination cursor. |
 | `MALFORMED_JSON` | 400 | The body is not parseable JSON. |
-| `UNAUTHORIZED` | 401 | No valid session: missing, expired, tampered, wrong audience or revoked token; failed login (generic message). |
+| `UNAUTHORIZED` | 401 | No valid session: missing, expired, tampered, wrong audience or revoked token. The client goes back to login. |
+| `INVALID_CREDENTIALS` | 401 | Failed login: unknown email, wrong password or disabled account, all with the same message. The client shows "wrong credentials". |
 | `FORBIDDEN` | 403 | Authenticated but not allowed: role, Origin/CSRF check. Not used to hide existence (see below). |
 | `CORS_FORBIDDEN` | 403 | Browser origin outside the CORS allowlist. |
 | `NOT_FOUND` | 404 | Unknown route; resource that does not exist, is removed, or is private to another user. |

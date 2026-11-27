@@ -3,6 +3,9 @@ import { AppError } from '../../middlewares/errors.js';
 
 export type UserRow = Pick<User, 'id' | 'email' | 'displayName' | 'role' | 'createdAt'>;
 
+/** Row used by login only: the hash never leaves the auth service. */
+export type CredentialsRow = UserRow & Pick<User, 'passwordHash' | 'status'>;
+
 export interface NewUser {
   email: string;
   displayName: string;
@@ -12,6 +15,9 @@ export interface NewUser {
 export interface AuthRepository {
   /** Creates a USER account. Throws AppError('CONFLICT') when the email is taken. */
   createUser(user: NewUser): Promise<UserRow>;
+  findCredentialsByEmail(email: string): Promise<CredentialsRow | null>;
+  /** Rehash on login: only replaces the hash it was given, so a concurrent password change wins. */
+  updatePasswordHash(userId: string, previousHash: string, nextHash: string): Promise<void>;
 }
 
 const USER_SELECT = { id: true, email: true, displayName: true, role: true, createdAt: true } as const;
@@ -33,6 +39,15 @@ export function createAuthRepository(prisma: PrismaClient): AuthRepository {
         }
         throw err;
       }
+    },
+    findCredentialsByEmail(email) {
+      return prisma.user.findUnique({
+        where: { email },
+        select: { ...USER_SELECT, passwordHash: true, status: true },
+      });
+    },
+    async updatePasswordHash(userId, previousHash, nextHash) {
+      await prisma.user.updateMany({ where: { id: userId, passwordHash: previousHash }, data: { passwordHash: nextHash } });
     },
   };
 }

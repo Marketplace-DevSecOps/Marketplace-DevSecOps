@@ -16,6 +16,11 @@ export const ERROR_CATALOGUE = {
   MALFORMED_JSON: { status: 400, message: 'The request body is not valid JSON.' },
   /** No valid session: missing, expired, tampered or revoked credentials. */
   UNAUTHORIZED: { status: 401, message: 'Authentication is required.' },
+  /**
+   * Failed login: unknown email, wrong password or disabled account, all with the
+   * same message so the response never reveals whether an account exists.
+   */
+  INVALID_CREDENTIALS: { status: 401, message: 'The email or password is incorrect.' },
   /** Authenticated but the action is not allowed (role, CSRF/Origin check). */
   FORBIDDEN: { status: 403, message: 'This action is not allowed.' },
   /** Browser origin outside the CORS allowlist. */

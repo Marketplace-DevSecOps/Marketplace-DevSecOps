@@ -843,6 +843,7 @@ components:
         - VALIDATION_ERROR
         - MALFORMED_JSON
         - UNAUTHORIZED
+        - INVALID_CREDENTIALS
         - FORBIDDEN
         - CORS_FORBIDDEN
         - NOT_FOUND

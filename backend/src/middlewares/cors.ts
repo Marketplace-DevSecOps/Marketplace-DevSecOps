@@ -28,7 +28,8 @@ export function cors(allowedOrigins: readonly string[]): RequestHandler {
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization', CORRELATION_HEADER],
-    exposedHeaders: [CORRELATION_HEADER],
+    // Retry-After lets browser clients (and Expo Web) read the 429 back-off.
+    exposedHeaders: [CORRELATION_HEADER, 'Retry-After'],
     maxAge: 600,
   });
   return (req, res, next) => {

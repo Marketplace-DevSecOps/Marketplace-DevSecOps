@@ -1,18 +1,25 @@
 import { Router } from 'express';
 import type { PrismaClient } from '../generated/prisma/client.js';
+import type { Config } from '../infrastructure/config.js';
 import { createAuthRouter } from '../modules/auth/auth.routes.js';
+import { createSessionsRepository } from '../modules/auth/sessions.repository.js';
+import { createSessionsService } from '../modules/auth/sessions.service.js';
+import { createAccessTokenService } from '../modules/auth/tokens.js';
 import { createCategoriesRouter } from '../modules/categories/categories.routes.js';
 import { createHealthRouter } from '../modules/health/health.routes.js';
 
 export interface ApiDependencies {
   prisma: PrismaClient;
+  config: Config;
 }
 
 /** Router mounted at /api/v1. Feature modules register their routes here. */
-export function createApiRouter({ prisma }: ApiDependencies): Router {
+export function createApiRouter({ prisma, config }: ApiDependencies): Router {
+  const sessions = createSessionsService(createSessionsRepository(prisma));
+  const tokens = createAccessTokenService(config);
   const router = Router();
   router.use(createHealthRouter());
-  router.use(createAuthRouter(prisma));
+  router.use(createAuthRouter({ prisma, config, sessions, tokens }));
   router.use(createCategoriesRouter(prisma));
   return router;
 }

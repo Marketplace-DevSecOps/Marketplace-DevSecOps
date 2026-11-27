@@ -48,3 +48,25 @@ export const newPassword = z
 export const registerBody = z.object({ email, displayName, password: newPassword });
 
 export type RegisterInput = z.output<typeof registerBody>;
+
+/** Same normalization as register, no format rule: a malformed email simply fails to log in. */
+export const loginEmail = z.string().max(320).trim().toLowerCase().pipe(z.string().min(1).max(EMAIL_MAX_LENGTH));
+
+/**
+ * Login accepts 1..128 code points (not the register minimum), so a later
+ * policy change never locks out existing accounts.
+ */
+const loginPassword = z
+  .string()
+  .max(PASSWORD_MAX_LENGTH * 2)
+  .min(1)
+  .refine((value) => codePoints(value) <= PASSWORD_MAX_LENGTH, { error: 'too long' });
+
+/** API-02 body (Web and mobile). */
+export const loginBody = z.object({ email: loginEmail, password: loginPassword });
+export type LoginInput = z.output<typeof loginBody>;
+
+/** Key used by the login quota: the same normalization as loginEmail, applied before validation. */
+export function normalizeLoginEmail(value: unknown): string {
+  return typeof value === 'string' ? value.slice(0, 320).trim().toLowerCase() : '';
+}

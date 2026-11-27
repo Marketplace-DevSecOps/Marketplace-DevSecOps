@@ -9,6 +9,7 @@ describe('error catalogue', () => {
       VALIDATION_ERROR: 400,
       MALFORMED_JSON: 400,
       UNAUTHORIZED: 401,
+      INVALID_CREDENTIALS: 401,
       FORBIDDEN: 403,
       CORS_FORBIDDEN: 403,
       NOT_FOUND: 404,

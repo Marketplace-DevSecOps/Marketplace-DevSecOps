@@ -56,7 +56,7 @@ Correctifs revue Phase 2 :
 - [x] Expurgation des logs par fragment de clé (password, token, secret, cookie, authorization, csrf, jwt, apikey ; casse, `-` et `_` ignorés) + tests.
 - [x] `TRUST_PROXY` en production : sous-réseaux trop larges (`/0`, préfixe IPv4 < 8, IPv6 < 16) et plus de 3 sauts refusés + tests.
 - [x] `Vary: Origin` toujours envoyé (réponse catégories en cache) + tests.
-- [ ] Seed limité aux bases locales de dev/test (hôte, nom de base, `NODE_ENV`) + test du refus.
+- [x] Seed limité aux bases locales de dev/test (hôte, nom de base, `NODE_ENV`) + test du refus.
 
 - [ ] Hachage Argon2id (paramètres justifiés et mesurés).
 - [ ] `POST /auth/register` : rôle USER forcé, rôle injecté rejeté, doublon concurrent → 409.

@@ -4,25 +4,26 @@
 //
 // WARNING: the passwords below are obvious development placeholders. They are
 // public in this repository and must never be used in production or on any
-// shared/exposed environment. The script refuses to run when
-// NODE_ENV=production.
+// shared/exposed environment. Before connecting, the script refuses to run
+// unless NODE_ENV is development or test and DATABASE_URL points to a local
+// database whose name contains "dev" or "test" (prisma/seed-guard.ts).
 import { existsSync } from 'node:fs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import argon2 from 'argon2';
 import { PrismaClient } from '../src/generated/prisma/client.js';
+import { assertSafeSeedTarget } from './seed-guard.js';
 
 if (existsSync('.env')) process.loadEnvFile('.env');
 
-if (process.env.NODE_ENV === 'production') {
-  process.stderr.write('Refusing to seed: NODE_ENV=production\n');
+try {
+  assertSafeSeedTarget(process.env);
+} catch (err) {
+  process.stderr.write(`Refusing to seed: ${err instanceof Error ? err.message : 'unsafe target'}\n`);
   process.exit(1);
 }
 
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  process.stderr.write('DATABASE_URL is required\n');
-  process.exit(1);
-}
+// Checked by assertSafeSeedTarget.
+const connectionString = process.env.DATABASE_URL as string;
 
 // Argon2id with the OWASP minimum profile (19 MiB, t=2, p=1). Phase 3 will
 // measure and justify the production parameters.

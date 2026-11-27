@@ -162,7 +162,9 @@ request, and both tabs return to login.
 Middleware: `backend/src/middlewares/requireAuth.ts` (`createRequireAuth`), one instance
 built in `createApiRouter` and shared by every protected route.
 
-1. `Authorization: Bearer <jwt>` (exact scheme, three base64url segments, at most 4096 chars).
+1. `Authorization: Bearer <jwt>` (three base64url segments, at most 4096 chars). The scheme
+   must be exactly `Bearer`: although RFC 7235 makes auth schemes case-insensitive, `bearer`
+   or `BEARER` gets `401`. Both current clients send `Bearer`; relaxing this is a contract change.
 2. Strict verification (`tokens.ts`): signature, `alg` = HS256, `iss`, `aud`, `exp`, `maxTokenAge`.
 3. `Session` row `sid`: not revoked, not expired, `userId` = `sub`, user `status` = `ACTIVE`.
 4. `req.auth = { userId, sessionId, role }`, with the role read from the database (a role

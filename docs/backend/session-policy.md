@@ -63,7 +63,8 @@ never fails the login.
 ### Timing equalization
 
 A login for an unknown email still runs one Argon2id verification, against a dummy
-hash computed once (lazily, same parameters) per process (`createDummyVerifier`). A
+hash computed once per process, eagerly when the auth router is created (same parameters,
+`createDummyVerifier`), so the first such login costs no extra hash. A
 disabled account verifies its real hash, then fails. The three failure cases (unknown
 email, wrong password, disabled account) therefore cost the same time and return the
 same error.

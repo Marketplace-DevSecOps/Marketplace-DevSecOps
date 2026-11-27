@@ -1,5 +1,5 @@
 import argon2 from 'argon2';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   ARGON2_OPTIONS,
   createDummyVerifier,
@@ -46,6 +46,19 @@ describe('password hashing', () => {
     const verifyDummy = createDummyVerifier();
     expect(await verifyDummy(PASSWORD)).toBe(false);
     expect(await verifyDummy('dummy-password-for-timing-equalization')).toBe(false);
+  });
+
+  it('dummy verifier computes its hash at creation and only verifies on use', async () => {
+    const hashSpy = vi.spyOn(argon2, 'hash');
+    try {
+      const verifyDummy = createDummyVerifier();
+      expect(hashSpy).toHaveBeenCalledTimes(1);
+      await verifyDummy(PASSWORD);
+      await verifyDummy(PASSWORD);
+      expect(hashSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      hashSpy.mockRestore();
+    }
   });
 
   it('createPasswordHasher bundles the same functions', async () => {

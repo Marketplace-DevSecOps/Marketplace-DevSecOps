@@ -51,11 +51,15 @@ export function needsRehash(hash: string): boolean {
   }
 }
 
-/** Returns a verifier whose dummy hash is computed once, on first use. */
+/**
+ * Returns a verifier whose dummy hash is computed once, eagerly at creation, so even
+ * the first unknown-email login costs one verify and no extra hash.
+ */
 export function createDummyVerifier(): (plain: string) => Promise<false> {
-  let dummyHash: Promise<string> | undefined;
+  const dummyHash = hashPassword(DUMMY_PASSWORD);
+  // Surfaced on first use; avoid an unhandled rejection if nobody logs in.
+  dummyHash.catch(() => undefined);
   return async (plain) => {
-    dummyHash ??= hashPassword(DUMMY_PASSWORD);
     await verifyPassword(await dummyHash, plain);
     return false;
   };

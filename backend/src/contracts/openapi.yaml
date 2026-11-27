@@ -21,8 +21,10 @@ info:
     - Prices are decimal strings with two digits plus an ISO 4217 currency; dates are ISO 8601 UTC.
     - JSON bodies are limited to 64 KiB (`413 PAYLOAD_TOO_LARGE`).
 
-    Names of the refresh cookie and CSRF header, and the password length bounds,
-    are provisional until Phase 3.
+    Sessions (API-01 to API-04): docs/backend/session-policy.md. Web clients use the
+    `mp_refresh` cookie with `Origin` + `X-CSRF-Token`; mobile clients use the
+    `/auth/mobile/*` variants with the refresh token in the body. Every `/auth/*` and
+    `/users/me` response is `Cache-Control: no-store`.
 servers:
   - url: /api/v1
 tags:
@@ -40,11 +42,12 @@ paths:
       operationId: register
       summary: Create a USER account.
       description: |
-        Not implemented yet (Phase 3). Email is trimmed and lowercased; the role is
-        always USER and a `role` field in the body is rejected as an unknown field.
+        Implemented. Email is trimmed and lowercased; the role is always USER and a
+        `role` (or any other unknown) field in the body is a `400 VALIDATION_ERROR`.
+        The password is hashed with Argon2id and never returned. Two concurrent
+        registrations of one email give one `201` and one `409`.
       x-api-ref: API-01
-      x-status: not-implemented
-      x-planned-phase: 3
+      x-status: implemented
       security: []
       requestBody:
         required: true
@@ -56,6 +59,7 @@ paths:
           description: Account created. No session is opened.
           headers:
             X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+            Cache-Control: { $ref: '#/components/headers/Cache-Control-No-Store' }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CurrentUser' }
@@ -71,13 +75,14 @@ paths:
       operationId: loginWeb
       summary: Web login; refresh token set as an HttpOnly cookie.
       description: |
-        Not implemented yet (Phase 3). Origin must be in the allowlist. Wrong email,
-        wrong password and disabled account all return the same `401 UNAUTHORIZED`.
-        Failed attempts count against a quota per account and IP shared with
-        `/auth/mobile/login`.
+        Implemented. `Origin` must be present and in the allowlist (`403 FORBIDDEN`
+        otherwise). Unknown email, wrong password and disabled account all return the
+        same `401 INVALID_CREDENTIALS`. Failed attempts count against a quota of 5 per
+        minute per (email, IP) shared with `/auth/mobile/login`, plus 20 per minute per IP
+        (`429 RATE_LIMITED` with `Retry-After`). Sets `mp_refresh` (HttpOnly) and
+        `mp_csrf` (readable, to echo in `X-CSRF-Token`).
       x-api-ref: API-02
-      x-status: not-implemented
-      x-planned-phase: 3
+      x-status: implemented
       security: []
       requestBody:
         required: true
@@ -89,13 +94,13 @@ paths:
           description: Session opened. The access token is kept in memory by the client.
           headers:
             X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
-            Set-Cookie: { $ref: '#/components/headers/Set-Refresh-Cookie' }
+            Set-Cookie: { $ref: '#/components/headers/Set-Session-Cookies' }
             Cache-Control: { $ref: '#/components/headers/Cache-Control-No-Store' }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/WebSession' }
         '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        '401': { $ref: '#/components/responses/InvalidCredentials' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '429': { $ref: '#/components/responses/RateLimited' }
@@ -107,11 +112,12 @@ paths:
       operationId: loginMobile
       summary: Mobile login; refresh token returned in the body.
       description: |
-        Not implemented yet (Phase 3). No cookie is set or accepted. Same generic
-        `401` and the same failed-attempt quota as `/auth/login`.
+        Implemented. No cookie is set or read and no `Origin` is required. Same
+        `401 INVALID_CREDENTIALS` and the same failed-attempt quotas as `/auth/login`.
+        The app keeps the access token in memory and the refresh token in
+        expo-secure-store.
       x-api-ref: API-02
-      x-status: not-implemented
-      x-planned-phase: 3
+      x-status: implemented
       security: []
       requestBody:
         required: true
@@ -128,7 +134,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/MobileSession' }
         '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        '401': { $ref: '#/components/responses/InvalidCredentials' }
         '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
@@ -139,27 +145,31 @@ paths:
       operationId: refreshWeb
       summary: Rotate the Web refresh cookie and issue a new access token.
       description: |
-        Not implemented yet (Phase 3). Requires the refresh cookie, an allowed Origin
-        and the CSRF header. Rotation is atomic; presenting an already rotated token
-        revokes the whole session family and returns `401`.
+        Implemented. The refresh token is read from the `mp_refresh` cookie only (a
+        body is ignored). Requires an allowed `Origin` and `X-CSRF-Token` equal to the
+        `mp_csrf` cookie and valid for the session (`403 FORBIDDEN` otherwise, nothing
+        rotated). Rotation is atomic. The same token presented again within 10 s gets
+        `409 CONFLICT` (no token issued, session kept; retry with the new cookie);
+        after 10 s it is a reuse: the whole session family is revoked and the answer
+        is `401`.
       x-api-ref: API-03
-      x-status: not-implemented
-      x-planned-phase: 3
+      x-status: implemented
       security:
         - refreshCookie: []
           csrfHeader: []
       responses:
         '200':
-          description: New access token; the cookie is replaced.
+          description: New access token; `mp_refresh` is replaced and `mp_csrf` re-set with the same value.
           headers:
             X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
-            Set-Cookie: { $ref: '#/components/headers/Set-Refresh-Cookie' }
+            Set-Cookie: { $ref: '#/components/headers/Set-Session-Cookies' }
             Cache-Control: { $ref: '#/components/headers/Cache-Control-No-Store' }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AccessToken' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/RefreshConflict' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
 
@@ -167,22 +177,26 @@ paths:
     post:
       tags: [auth]
       operationId: logoutWeb
-      summary: Revoke the Web session and clear the refresh cookie.
+      summary: Revoke the Web session and clear the session cookies.
       description: |
-        Not implemented yet (Phase 3). Requires an allowed Origin and the CSRF header.
-        Repeating the call after logout is harmless and still returns 204.
+        Implemented. Requires an allowed `Origin`; when the `mp_refresh` cookie is a
+        known session, `X-CSRF-Token` must also be valid (`403`, nothing changed).
+        Revokes every session of the family (all access tokens of that login stop
+        working immediately). Without a known cookie there is nothing to revoke:
+        the cookies are cleared and the answer is still `204`, so repeating the call
+        is harmless.
       x-api-ref: API-03
-      x-status: not-implemented
-      x-planned-phase: 3
+      x-status: implemented
       security:
         - refreshCookie: []
           csrfHeader: []
       responses:
         '204':
-          description: Session revoked; the cookie is cleared with its original attributes.
+          description: Session revoked; `mp_refresh` and `mp_csrf` cleared with their original attributes.
           headers:
             X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
-            Set-Cookie: { $ref: '#/components/headers/Set-Refresh-Cookie' }
+            Set-Cookie: { $ref: '#/components/headers/Set-Session-Cookies' }
+            Cache-Control: { $ref: '#/components/headers/Cache-Control-No-Store' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
@@ -193,11 +207,12 @@ paths:
       operationId: refreshMobile
       summary: Rotate the mobile refresh token sent in the body.
       description: |
-        Not implemented yet (Phase 3). Cookies are ignored on this route. Same
-        rotation and reuse detection as `/auth/refresh`.
+        Implemented. The token is read from the JSON body only; cookies are never read
+        (a cookie alone is a `400 VALIDATION_ERROR` for the missing field). Same
+        rotation, 10 s duplicate window (`409`) and reuse detection (`401`, family
+        revoked) as `/auth/refresh`.
       x-api-ref: API-03
-      x-status: not-implemented
-      x-planned-phase: 3
+      x-status: implemented
       security: []
       requestBody:
         required: true
@@ -206,7 +221,7 @@ paths:
             schema: { $ref: '#/components/schemas/RefreshTokenRequest' }
       responses:
         '200':
-          description: New access and refresh tokens.
+          description: New access and refresh tokens. The previous refresh token is no longer usable.
           headers:
             X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
             Cache-Control: { $ref: '#/components/headers/Cache-Control-No-Store' }
@@ -215,6 +230,7 @@ paths:
               schema: { $ref: '#/components/schemas/MobileTokens' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/RefreshConflict' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
 
@@ -223,10 +239,12 @@ paths:
       tags: [auth]
       operationId: logoutMobile
       summary: Revoke the mobile session identified by its refresh token.
-      description: Not implemented yet (Phase 3). Cookies are ignored. Repeated calls return 204.
+      description: |
+        Implemented. Token in the JSON body only; cookies are never read. Revokes the
+        whole family when the token is known. Unknown or already revoked tokens and
+        repeated calls also return `204`.
       x-api-ref: API-03
-      x-status: not-implemented
-      x-planned-phase: 3
+      x-status: implemented
       security: []
       requestBody:
         required: true
@@ -235,9 +253,10 @@ paths:
             schema: { $ref: '#/components/schemas/RefreshTokenRequest' }
       responses:
         '204':
-          description: Session revoked.
+          description: Session revoked (or nothing to revoke).
           headers:
             X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+            Cache-Control: { $ref: '#/components/headers/Cache-Control-No-Store' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
@@ -247,10 +266,11 @@ paths:
       tags: [users]
       operationId: getCurrentUser
       summary: Read the current account.
-      description: Not implemented yet (Phase 3). Requires an active session.
+      description: |
+        Implemented. Requires a valid access token whose session is still active in
+        the database and whose user is ACTIVE. The role is read from the database.
       x-api-ref: API-04
-      x-status: not-implemented
-      x-planned-phase: 3
+      x-status: implemented
       security:
         - bearerAuth: []
       responses:
@@ -269,11 +289,11 @@ paths:
       operationId: updateCurrentUser
       summary: Update the public fields of the current account.
       description: |
-        Not implemented yet (Phase 3). Only `displayName` is accepted; `role`, `email`,
-        `password` or any other field is a `400 VALIDATION_ERROR`.
+        Implemented. Only `displayName` is accepted; `role`, `email`, `password`,
+        `status`, `id` or any other field is a `400 VALIDATION_ERROR` and nothing is
+        changed. The account is always the session user's.
       x-api-ref: API-04
-      x-status: not-implemented
-      x-planned-phase: 3
+      x-status: implemented
       security:
         - bearerAuth: []
       requestBody:
@@ -711,13 +731,19 @@ components:
     refreshCookie:
       type: apiKey
       in: cookie
-      name: refresh_token
-      description: Opaque refresh token, 7 days, HttpOnly, Secure, SameSite, Path limited to /api/v1/auth.
+      name: mp_refresh
+      description: |
+        Opaque refresh token (single use, rotated), family lifetime 7 days from login.
+        HttpOnly, Secure, SameSite=Strict, Path=/api/v1/auth. (`__Host-` is not used
+        because that prefix requires Path=/.)
     csrfHeader:
       type: apiKey
       in: header
       name: X-CSRF-Token
-      description: CSRF token required with the refresh cookie, together with an allowed Origin.
+      description: |
+        Signed double-submit token: must equal the readable `mp_csrf` cookie set at login,
+        whose HMAC binds it to the session family. Required with the refresh cookie,
+        together with an `Origin` in the allowlist.
 
   parameters:
     IdPath:
@@ -746,8 +772,13 @@ components:
     Cache-Control-No-Store:
       description: Always `no-store`.
       schema: { type: string, const: no-store }
-    Set-Refresh-Cookie:
-      description: Sets, replaces or clears the HttpOnly refresh cookie.
+    Set-Session-Cookies:
+      description: |
+        Sets, replaces or clears the two Web session cookies:
+        `mp_refresh=<token>; Max-Age=604800; Path=/api/v1/auth; HttpOnly; Secure; SameSite=Strict`
+        and `mp_csrf=<nonce>.<hmac>; Max-Age=604800; Path=/; Secure; SameSite=Strict` (readable
+        by the SPA). On refresh, Max-Age is the time left until the session family expires.
+        Clearing uses the same attributes with `Expires=Thu, 01 Jan 1970 00:00:00 GMT`.
       schema: { type: string }
 
   responses:
@@ -759,7 +790,24 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorBody' }
     Unauthorized:
-      description: '`UNAUTHORIZED`: missing, expired, tampered or revoked credentials; failed login.'
+      description: '`UNAUTHORIZED`: missing, expired, tampered or revoked credentials, or a reused refresh token. Same body in every case.'
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorBody' }
+    InvalidCredentials:
+      description: '`INVALID_CREDENTIALS`: unknown email, wrong password or disabled account (identical body and comparable timing).'
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorBody' }
+    RefreshConflict:
+      description: |
+        `CONFLICT`: this refresh token was rotated less than 10 seconds ago (concurrent
+        tabs or a retried request). No token is issued and the session is kept; the
+        client uses the token stored by the winning request.
       headers:
         X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
       content:
@@ -998,7 +1046,7 @@ components:
           minLength: 12
           maxLength: 128
           writeOnly: true
-          description: Provisional bounds; final policy set in Phase 3.
+          description: 12 to 128 Unicode code points, hashed exactly as typed (no trimming).
     LoginRequest:
       type: object
       additionalProperties: false
@@ -1011,12 +1059,12 @@ components:
       additionalProperties: false
       required: [refreshToken]
       properties:
-        refreshToken: { type: string, minLength: 1, maxLength: 256, writeOnly: true }
+        refreshToken: { type: string, minLength: 1, maxLength: 256, pattern: '^[A-Za-z0-9_-]+$', writeOnly: true }
     CurrentUser:
       type: object
       additionalProperties: false
       required: [id, email, displayName, role, createdAt]
-      description: Private view of the session user (mapper planned in Phase 3). Never includes the password hash.
+      description: Private view of the session user (mapper `toCurrentUserDto`). Never includes the password hash or status.
       properties:
         id: { $ref: '#/components/schemas/Id' }
         email: { type: string, format: email }
@@ -1033,33 +1081,37 @@ components:
       type: object
       additionalProperties: false
       required: [accessToken, expiresIn]
+      description: Web refresh response; the new refresh token is only in the `mp_refresh` cookie.
       properties:
         accessToken: { type: string }
-        expiresIn: { type: integer, description: Lifetime in seconds (600). }
+        expiresIn: { type: integer, const: 600, description: Access token lifetime in seconds. }
     MobileTokens:
       type: object
       additionalProperties: false
       required: [accessToken, expiresIn, refreshToken]
+      description: Mobile refresh response. Save `refreshToken` in expo-secure-store before using `accessToken`.
       properties:
-        accessToken: { type: string }
-        expiresIn: { type: integer, description: Lifetime in seconds (600). }
-        refreshToken: { type: string, description: Opaque, single use, 7 days. }
+        accessToken: { type: string, description: 'HS256 JWT, sent as `Authorization: Bearer`.' }
+        expiresIn: { type: integer, const: 600, description: Access token lifetime in seconds. }
+        refreshToken: { type: string, pattern: '^[A-Za-z0-9_-]{43}$', description: 'Opaque, single use; the family expires 7 days after login.' }
     WebSession:
       type: object
       additionalProperties: false
       required: [accessToken, expiresIn, user]
+      description: Web login response; the refresh token is only in the `mp_refresh` cookie.
       properties:
-        accessToken: { type: string }
-        expiresIn: { type: integer }
+        accessToken: { type: string, description: 'HS256 JWT, kept in memory by the SPA.' }
+        expiresIn: { type: integer, const: 600, description: Access token lifetime in seconds. }
         user: { $ref: '#/components/schemas/CurrentUser' }
     MobileSession:
       type: object
       additionalProperties: false
       required: [accessToken, expiresIn, refreshToken, user]
+      description: Mobile login response (Cache-Control no-store, no cookie).
       properties:
-        accessToken: { type: string }
-        expiresIn: { type: integer }
-        refreshToken: { type: string }
+        accessToken: { type: string, description: 'HS256 JWT, kept in memory by the app.' }
+        expiresIn: { type: integer, const: 600, description: Access token lifetime in seconds. }
+        refreshToken: { type: string, pattern: '^[A-Za-z0-9_-]{43}$', description: 'Opaque, single use; store in expo-secure-store.' }
         user: { $ref: '#/components/schemas/CurrentUser' }
 
     OpenConversationRequest:

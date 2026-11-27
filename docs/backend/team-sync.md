@@ -119,6 +119,17 @@ backend cannot add a field without breaking the app.
 | 14 | CORS for Expo Web | allowlist `http://localhost:5173` only; exposes `X-Request-Id` only | needs the Expo Web origin; asks to expose `Retry-After` | **Backend**: add `http://localhost:8081` to the dev example now. Expose `Retry-After` with the quotas in Phase 7. |
 | 15 | Socket.IO protocol (`conversation:join/leave`, `message:send`, `message:created`, `SocketAck`, handshake `auth.accessToken`, `connect_error` `err.data = ErrorBody`) | not specified yet | proposed in `messagerie-temps-reel.md` | **Backend adopts in Phase 5** (Anas owns the protocol). It uses the backend error catalogue unchanged. |
 
+### Phase 3 decisions (auth, implemented)
+Details in `docs/backend/session-policy.md` and `backend/src/contracts/openapi.yaml`.
+| # | Decision |
+|---|---|
+| 2 | `CurrentUser` stays `{id,email,displayName,role,createdAt}` (register 201, `/users/me`, `user` in login responses). **Anas** parses it non-strictly. |
+| 3 | Mobile login keeps the backend contract `MobileSession {accessToken, expiresIn: 600, refreshToken, user}`. **Anas** switches from `accessTokenExpiresAt`/`refreshTokenExpiresAt`/`tokenType` to `expiresIn` (absolute expiry = receive time + `expiresIn`; the refresh family ends 7 days after login). |
+| 4 | Mobile refresh returns `MobileTokens {accessToken, expiresIn, refreshToken}` without `user`; the app keeps the user from login or calls `GET /users/me`. A duplicate refresh within 10 s answers `409 CONFLICT` (re-read SecureStore), a later replay `401` and revokes the family. |
+| 6 | Login accepts passwords of 1..128 code points (backend side done). |
+| 13 | Cookies on `/auth/mobile/*` are ignored, never parsed: a cookie-only request fails with `400 VALIDATION_ERROR` (missing `refreshToken`). No dedicated `400 BAD_REQUEST` for the header. |
+| 14 | `Retry-After` is now exposed through CORS (login quotas ship in Phase 3). |
+| new | Failed logins return the new code `401 INVALID_CREDENTIALS` (unknown email, wrong password, disabled account). **Anas** adds it to `mobile/src/services/errors.ts` (show "wrong credentials", unlike `UNAUTHORIZED` = go to login). |
 ## Recommended changes
 
 ### For Anas (mobile/, docs/anas/)

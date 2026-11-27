@@ -549,6 +549,10 @@ paths:
       description: |
         Not implemented yet (Phase 5). Participants only; a non-participant gets the
         same 404 as for an unknown id. The cursor encodes the last `seq` returned.
+        Resync (docs/anas/messagerie-temps-reel.md): `afterSeq` returns the messages with
+        `seq > afterSeq`; it defaults to 0 and is mutually exclusive with `cursor`
+        (both together are a `400 VALIDATION_ERROR`). A value above the last `seq`
+        returns an empty page. Follow `nextCursor` until it is null.
       x-api-ref: API-10
       x-status: not-implemented
       x-planned-phase: 5
@@ -557,6 +561,10 @@ paths:
       parameters:
         - { $ref: '#/components/parameters/Cursor' }
         - { $ref: '#/components/parameters/Limit' }
+        - name: afterSeq
+          in: query
+          description: Last contiguous `seq` the client already holds. Exclusive with `cursor`.
+          schema: { type: integer, minimum: 0, maximum: 2147483647, default: 0 }
       responses:
         '200':
           description: One page of messages in ascending `seq` order.
@@ -1085,13 +1093,18 @@ components:
       type: object
       additionalProperties: false
       required: [body, clientMessageId]
+      description: |
+        The serialized request body is limited to 8 KiB (`413 PAYLOAD_TOO_LARGE`). The
+        server normalizes `body` (CRLF and CR to LF, then outer trim) before validating
+        1 to 2000 Unicode code points; nothing is truncated. REST and Socket.IO share these rules.
       properties:
         body: { type: string, minLength: 1, maxLength: 2000 }
         clientMessageId:
           type: string
-          minLength: 1
-          maxLength: 64
-          description: Idempotency key chosen by the client, unique per sender.
+          format: uuid
+          description: |
+            Idempotency key generated once per logical send (UUID v4), unique per sender;
+            reused unchanged on retries over REST or Socket.IO.
     Message:
       type: object
       additionalProperties: false
@@ -1102,7 +1115,7 @@ components:
         conversationId: { $ref: '#/components/schemas/Id' }
         senderId: { $ref: '#/components/schemas/Id' }
         body: { type: string, maxLength: 2000 }
-        clientMessageId: { type: string, maxLength: 64 }
+        clientMessageId: { type: string, format: uuid }
         seq: { type: integer, minimum: 1 }
         createdAt: { $ref: '#/components/schemas/Timestamp' }
     MessagePage:

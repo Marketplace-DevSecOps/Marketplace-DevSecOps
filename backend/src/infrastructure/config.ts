@@ -41,6 +41,20 @@ function isTrustedProxyEntry(entry: string): boolean {
   return Number(prefix) <= (version === 4 ? 32 : 128);
 }
 
+// Production limits: a catch-all subnet (0.0.0.0/0, ::/0, or split equivalents
+// such as 0.0.0.0/1,128.0.0.0/1) or a large hop count lets clients choose
+// req.ip through X-Forwarded-For, which defeats per-IP quotas.
+const MAX_TRUSTED_HOPS = 3;
+const MIN_IPV4_PREFIX = 8;
+const MIN_IPV6_PREFIX = 16;
+
+/** Expects an entry already accepted by isTrustedProxyEntry. */
+function isOverBroadSubnet(entry: string): boolean {
+  const [address = '', prefix] = entry.split('/');
+  if (prefix === undefined) return false;
+  return Number(prefix) < (isIP(address) === 4 ? MIN_IPV4_PREFIX : MIN_IPV6_PREFIX);
+}
+
 const corsOrigins = z
   .string({ error: 'is required (comma-separated list of origins, may be empty)' })
   .transform((raw, ctx) => {
@@ -126,6 +140,20 @@ const configSchema = z
         code: 'custom',
         path: ['TRUST_PROXY'],
         message: 'must not be true when NODE_ENV=production (use false, a hop count or a list of trusted addresses/subnets)',
+      });
+    }
+    if (config.NODE_ENV === 'production' && typeof config.TRUST_PROXY === 'number' && config.TRUST_PROXY > MAX_TRUSTED_HOPS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['TRUST_PROXY'],
+        message: `must not exceed ${String(MAX_TRUSTED_HOPS)} hops when NODE_ENV=production`,
+      });
+    }
+    if (config.NODE_ENV === 'production' && Array.isArray(config.TRUST_PROXY) && config.TRUST_PROXY.some(isOverBroadSubnet)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['TRUST_PROXY'],
+        message: `must not contain subnets broader than /${String(MIN_IPV4_PREFIX)} (IPv4) or /${String(MIN_IPV6_PREFIX)} (IPv6) when NODE_ENV=production`,
       });
     }
     if (config.DATABASE_URL_TEST !== undefined && config.DATABASE_URL_TEST === config.DATABASE_URL) {

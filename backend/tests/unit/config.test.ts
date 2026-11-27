@@ -44,6 +44,32 @@ describe('parseConfig', () => {
     expect(parseConfig({ ...TEST_ENV, NODE_ENV: 'production', TRUST_PROXY: value }).TRUST_PROXY).toEqual(expected);
   });
 
+  it.each(['0.0.0.0/0', '::/0', '0.0.0.0/1,128.0.0.0/1', '10.0.0.0/7', 'loopback, 2001::/15', '4', '100'])(
+    'rejects TRUST_PROXY=%s in production',
+    (value) => {
+      const error = configErrorOf({ ...TEST_ENV, NODE_ENV: 'production', TRUST_PROXY: value });
+      expect(error.issues).toHaveLength(1);
+      expect(error.issues[0]).toMatch(/^TRUST_PROXY /);
+    },
+  );
+
+  it.each([
+    ['1', 1],
+    ['3', 3],
+    ['10.0.0.0/8', ['10.0.0.0/8']],
+    ['loopback', ['loopback']],
+    ['fd00::/16', ['fd00::/16']],
+  ])('accepts TRUST_PROXY=%s at the production limits', (value, expected) => {
+    expect(parseConfig({ ...TEST_ENV, NODE_ENV: 'production', TRUST_PROXY: value }).TRUST_PROXY).toEqual(expected);
+  });
+
+  it.each([
+    ['0.0.0.0/0', ['0.0.0.0/0']],
+    ['10', 10],
+  ])('still accepts TRUST_PROXY=%s outside production', (value, expected) => {
+    expect(parseConfig({ ...TEST_ENV, NODE_ENV: 'development', TRUST_PROXY: value }).TRUST_PROXY).toEqual(expected);
+  });
+
   it.each(['64kb', '65536b', '16KB', '1kb'])('accepts BODY_LIMIT=%s up to 64kb', (value) => {
     expect(parseConfig({ ...TEST_ENV, BODY_LIMIT: value }).BODY_LIMIT).toBe(value);
   });

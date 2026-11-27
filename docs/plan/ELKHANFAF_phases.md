@@ -54,7 +54,7 @@ Synchronisation équipe :
 Correctifs revue Phase 2 :
 
 - [x] Expurgation des logs par fragment de clé (password, token, secret, cookie, authorization, csrf, jwt, apikey ; casse, `-` et `_` ignorés) + tests.
-- [ ] `TRUST_PROXY` en production : sous-réseaux trop larges (`/0`, préfixe IPv4 < 8, IPv6 < 16) et plus de 3 sauts refusés + tests.
+- [x] `TRUST_PROXY` en production : sous-réseaux trop larges (`/0`, préfixe IPv4 < 8, IPv6 < 16) et plus de 3 sauts refusés + tests.
 - [ ] `Vary: Origin` toujours envoyé (réponse catégories en cache) + tests.
 - [ ] Seed limité aux bases locales de dev/test (hôte, nom de base, `NODE_ENV`) + test du refus.
 

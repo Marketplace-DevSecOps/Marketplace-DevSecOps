@@ -36,7 +36,7 @@ Correctifs revue Phase 1 :
 - [x] Rôle PostgreSQL applicatif à privilèges limités séparé du rôle de migration (script SQL documenté).
 - [x] Middleware de validation Zod (params/query/body, `.strict()` refusant les champs inconnus).
 - [x] Conventions DTO et catalogue des codes d'erreur.
-- [ ] Squelette OpenAPI couvrant API-01 à API-14.
+- [x] Squelette OpenAPI couvrant API-01 à API-14.
 - [ ] `docs/backend/data-dictionary.md` (classification public/privé/secret).
 - [ ] `GET /api/v1/categories` (API-14) + tests (catégorie inactive exclue).
 - [ ] Tests d'intégration : migrations sur base vierge, contraintes d'unicité.

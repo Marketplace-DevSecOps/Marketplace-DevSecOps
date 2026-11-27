@@ -1,0 +1,1129 @@
+openapi: 3.1.0
+info:
+  title: Secure Marketplace API
+  version: 0.1.0
+  summary: REST contract for API-01 to API-14 (docs/responsibilities/Khanfaf_ELKHANFAF.md, section 4).
+  description: |
+    Skeleton contract. Every operation carries:
+
+    - `x-api-ref`: the spec reference (API-01 … API-14).
+    - `x-status`: `implemented` when the route is served by the backend today,
+      `not-implemented` when only the contract exists (the server answers 404 until
+      the phase listed in `x-planned-phase` of docs/plan/ELKHANFAF_phases.md ships it).
+
+    Conventions (docs/backend/api-conventions.md):
+
+    - Every response carries `X-Request-Id`; error bodies repeat it as `correlationId`.
+    - Errors use the stable codes of `ErrorCode`; clients branch on `code`, never on `message`.
+    - A resource that exists but is private to another user answers `404 NOT_FOUND`,
+      identical to an unknown id (anti-enumeration, OWASP API1:2023).
+    - Request bodies are strict: unknown fields are a `400 VALIDATION_ERROR`.
+    - Prices are decimal strings with two digits plus an ISO 4217 currency; dates are ISO 8601 UTC.
+    - JSON bodies are limited to 64 KiB (`413 PAYLOAD_TOO_LARGE`).
+
+    Names of the refresh cookie and CSRF header, and the password length bounds,
+    are provisional until Phase 3.
+servers:
+  - url: /api/v1
+tags:
+  - name: auth
+  - name: users
+  - name: products
+  - name: conversations
+  - name: assistant
+  - name: system
+
+paths:
+  /auth/register:
+    post:
+      tags: [auth]
+      operationId: register
+      summary: Create a USER account.
+      description: |
+        Not implemented yet (Phase 3). Email is trimmed and lowercased; the role is
+        always USER and a `role` field in the body is rejected as an unknown field.
+      x-api-ref: API-01
+      x-status: not-implemented
+      x-planned-phase: 3
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201':
+          description: Account created. No session is opened.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CurrentUser' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /auth/login:
+    post:
+      tags: [auth]
+      operationId: loginWeb
+      summary: Web login; refresh token set as an HttpOnly cookie.
+      description: |
+        Not implemented yet (Phase 3). Origin must be in the allowlist. Wrong email,
+        wrong password and disabled account all return the same `401 UNAUTHORIZED`.
+        Failed attempts count against a quota per account and IP shared with
+        `/auth/mobile/login`.
+      x-api-ref: API-02
+      x-status: not-implemented
+      x-planned-phase: 3
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Session opened. The access token is kept in memory by the client.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+            Set-Cookie: { $ref: '#/components/headers/Set-Refresh-Cookie' }
+            Cache-Control: { $ref: '#/components/headers/Cache-Control-No-Store' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebSession' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /auth/mobile/login:
+    post:
+      tags: [auth]
+      operationId: loginMobile
+      summary: Mobile login; refresh token returned in the body.
+      description: |
+        Not implemented yet (Phase 3). No cookie is set or accepted. Same generic
+        `401` and the same failed-attempt quota as `/auth/login`.
+      x-api-ref: API-02
+      x-status: not-implemented
+      x-planned-phase: 3
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Session opened.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+            Cache-Control: { $ref: '#/components/headers/Cache-Control-No-Store' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MobileSession' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refreshWeb
+      summary: Rotate the Web refresh cookie and issue a new access token.
+      description: |
+        Not implemented yet (Phase 3). Requires the refresh cookie, an allowed Origin
+        and the CSRF header. Rotation is atomic; presenting an already rotated token
+        revokes the whole session family and returns `401`.
+      x-api-ref: API-03
+      x-status: not-implemented
+      x-planned-phase: 3
+      security:
+        - refreshCookie: []
+          csrfHeader: []
+      responses:
+        '200':
+          description: New access token; the cookie is replaced.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+            Set-Cookie: { $ref: '#/components/headers/Set-Refresh-Cookie' }
+            Cache-Control: { $ref: '#/components/headers/Cache-Control-No-Store' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccessToken' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logoutWeb
+      summary: Revoke the Web session and clear the refresh cookie.
+      description: |
+        Not implemented yet (Phase 3). Requires an allowed Origin and the CSRF header.
+        Repeating the call after logout is harmless and still returns 204.
+      x-api-ref: API-03
+      x-status: not-implemented
+      x-planned-phase: 3
+      security:
+        - refreshCookie: []
+          csrfHeader: []
+      responses:
+        '204':
+          description: Session revoked; the cookie is cleared with its original attributes.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+            Set-Cookie: { $ref: '#/components/headers/Set-Refresh-Cookie' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /auth/mobile/refresh:
+    post:
+      tags: [auth]
+      operationId: refreshMobile
+      summary: Rotate the mobile refresh token sent in the body.
+      description: |
+        Not implemented yet (Phase 3). Cookies are ignored on this route. Same
+        rotation and reuse detection as `/auth/refresh`.
+      x-api-ref: API-03
+      x-status: not-implemented
+      x-planned-phase: 3
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshTokenRequest' }
+      responses:
+        '200':
+          description: New access and refresh tokens.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+            Cache-Control: { $ref: '#/components/headers/Cache-Control-No-Store' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MobileTokens' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /auth/mobile/logout:
+    post:
+      tags: [auth]
+      operationId: logoutMobile
+      summary: Revoke the mobile session identified by its refresh token.
+      description: Not implemented yet (Phase 3). Cookies are ignored. Repeated calls return 204.
+      x-api-ref: API-03
+      x-status: not-implemented
+      x-planned-phase: 3
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshTokenRequest' }
+      responses:
+        '204':
+          description: Session revoked.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /users/me:
+    get:
+      tags: [users]
+      operationId: getCurrentUser
+      summary: Read the current account.
+      description: Not implemented yet (Phase 3). Requires an active session.
+      x-api-ref: API-04
+      x-status: not-implemented
+      x-planned-phase: 3
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current account.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+            Cache-Control: { $ref: '#/components/headers/Cache-Control-No-Store' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CurrentUser' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    patch:
+      tags: [users]
+      operationId: updateCurrentUser
+      summary: Update the public fields of the current account.
+      description: |
+        Not implemented yet (Phase 3). Only `displayName` is accepted; `role`, `email`,
+        `password` or any other field is a `400 VALIDATION_ERROR`.
+      x-api-ref: API-04
+      x-status: not-implemented
+      x-planned-phase: 3
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateCurrentUserRequest' }
+      responses:
+        '200':
+          description: Updated account.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+            Cache-Control: { $ref: '#/components/headers/Cache-Control-No-Store' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CurrentUser' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /products:
+    get:
+      tags: [products]
+      operationId: searchProducts
+      summary: Search active listings.
+      description: |
+        Not implemented yet (Phase 4). Public. Only ACTIVE listings are returned.
+        `minPrice` must not exceed `maxPrice`.
+      x-api-ref: API-05
+      x-status: not-implemented
+      x-planned-phase: 4
+      security: []
+      parameters:
+        - name: q
+          in: query
+          description: Free text matched against title and description.
+          schema: { type: string, minLength: 1, maxLength: 100 }
+        - name: categoryId
+          in: query
+          schema: { $ref: '#/components/schemas/Id' }
+        - name: minPrice
+          in: query
+          schema: { $ref: '#/components/schemas/Price' }
+        - name: maxPrice
+          in: query
+          schema: { $ref: '#/components/schemas/Price' }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [newest, price_asc, price_desc]
+            default: newest
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: One page of listings.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+    post:
+      tags: [products]
+      operationId: createProduct
+      summary: Publish a listing; the seller is the session user.
+      description: |
+        Not implemented yet (Phase 4). `sellerId`, `status` or `version` in the body
+        are unknown fields (`400`). The category must exist and be active.
+      x-api-ref: API-07
+      x-status: not-implemented
+      x-planned-phase: 4
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateProductRequest' }
+      responses:
+        '201':
+          description: Listing created.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnProduct' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /products/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    get:
+      tags: [products]
+      operationId: getProduct
+      summary: Public detail of an active listing.
+      description: Not implemented yet (Phase 4). A removed or unknown listing returns 404.
+      x-api-ref: API-06
+      x-status: not-implemented
+      x-planned-phase: 4
+      security: []
+      responses:
+        '200':
+          description: Listing with a minimal seller view.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Product' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    patch:
+      tags: [products]
+      operationId: updateProduct
+      summary: Edit an own listing with optimistic concurrency.
+      description: |
+        Not implemented yet (Phase 4). Owner only; another user's listing returns 404.
+        A stale `version` returns `409 CONFLICT`.
+      x-api-ref: API-08
+      x-status: not-implemented
+      x-planned-phase: 4
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateProductRequest' }
+      responses:
+        '200':
+          description: Updated listing.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnProduct' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    delete:
+      tags: [products]
+      operationId: removeProduct
+      summary: Remove an own listing (logical removal).
+      description: |
+        Not implemented yet (Phase 4). Owner only; another user's or an already
+        removed listing returns 404.
+      x-api-ref: API-08
+      x-status: not-implemented
+      x-planned-phase: 4
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Listing removed from the public catalogue.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /users/me/products:
+    get:
+      tags: [products]
+      operationId: listOwnProducts
+      summary: List the session user's listings, active and removed.
+      description: Not implemented yet (Phase 4).
+      x-api-ref: API-07
+      x-status: not-implemented
+      x-planned-phase: 4
+      security:
+        - bearerAuth: []
+      parameters:
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: One page of own listings.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnProductPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /conversations:
+    post:
+      tags: [conversations]
+      operationId: openConversation
+      summary: Create or retrieve the conversation between the session user and a listing's seller.
+      description: |
+        Not implemented yet (Phase 5). The seller is derived from the product; the
+        buyer is the session user and must differ from the seller (`400`). An unknown
+        or removed listing returns 404. Concurrent calls yield a single conversation.
+      x-api-ref: API-09
+      x-status: not-implemented
+      x-planned-phase: 5
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OpenConversationRequest' }
+      responses:
+        '200':
+          description: Existing conversation returned.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Conversation' }
+        '201':
+          description: Conversation created.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Conversation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    get:
+      tags: [conversations]
+      operationId: listConversations
+      summary: List the conversations the session user takes part in.
+      description: Not implemented yet (Phase 5).
+      x-api-ref: API-09
+      x-status: not-implemented
+      x-planned-phase: 5
+      security:
+        - bearerAuth: []
+      parameters:
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: One page of conversations.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+            Cache-Control: { $ref: '#/components/headers/Cache-Control-No-Store' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConversationPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /conversations/{id}/messages:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    get:
+      tags: [conversations]
+      operationId: listMessages
+      summary: Message history ordered by server sequence number.
+      description: |
+        Not implemented yet (Phase 5). Participants only; a non-participant gets the
+        same 404 as for an unknown id. The cursor encodes the last `seq` returned.
+      x-api-ref: API-10
+      x-status: not-implemented
+      x-planned-phase: 5
+      security:
+        - bearerAuth: []
+      parameters:
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: One page of messages in ascending `seq` order.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+            Cache-Control: { $ref: '#/components/headers/Cache-Control-No-Store' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessagePage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [conversations]
+      operationId: sendMessage
+      summary: REST fallback for `message:send`; acknowledged after persistence.
+      description: |
+        Not implemented yet (Phase 5). Same service as the Socket.IO event. The sender
+        is the session user. Replaying a `clientMessageId` with the same body returns
+        the stored message (200); with a different body returns `409 CONFLICT`.
+      x-api-ref: API-11
+      x-status: not-implemented
+      x-planned-phase: 5
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SendMessageRequest' }
+      responses:
+        '200':
+          description: Idempotent replay; the message stored by the first call.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '201':
+          description: Message persisted.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /assistant/chat:
+    post:
+      tags: [assistant]
+      operationId: assistantChat
+      summary: Ask the shopping assistant.
+      description: |
+        Not implemented yet (Phase 6). Requires a session; quota per user and IP. The
+        model gets no permission of its own: its only tool is the public catalogue
+        search, and every product it cites is re-read through the products service.
+        Provider failure or timeout returns `503 SERVICE_UNAVAILABLE`.
+      x-api-ref: API-12
+      x-status: not-implemented
+      x-planned-phase: 6
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AssistantChatRequest' }
+      responses:
+        '200':
+          description: Assistant reply.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+            Cache-Control: { $ref: '#/components/headers/Cache-Control-No-Store' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssistantChatResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /health:
+    get:
+      tags: [system]
+      operationId: getHealth
+      summary: Liveness probe.
+      description: Implemented. Public and minimal; exposes no version, environment, host or dependency detail.
+      x-api-ref: API-13
+      x-status: implemented
+      security: []
+      responses:
+        '200':
+          description: The process is serving requests.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+            Cache-Control: { $ref: '#/components/headers/Cache-Control-No-Store' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /categories:
+    get:
+      tags: [products]
+      operationId: listCategories
+      summary: Active categories for filters and listing forms.
+      description: Not implemented yet (Phase 2). Public; inactive categories are excluded.
+      x-api-ref: API-14
+      x-status: not-implemented
+      x-planned-phase: 2
+      security: []
+      responses:
+        '200':
+          description: All active categories (bounded reference list).
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CategoryList' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token valid 10 minutes, bound to an active session checked in the database.
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: refresh_token
+      description: Opaque refresh token, 7 days, HttpOnly, Secure, SameSite, Path limited to /api/v1/auth.
+    csrfHeader:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: CSRF token required with the refresh cookie, together with an allowed Origin.
+
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Id' }
+    Cursor:
+      name: cursor
+      in: query
+      description: Opaque cursor from a previous page's `nextCursor`.
+      schema: { type: string, minLength: 1, maxLength: 512 }
+    Limit:
+      name: limit
+      in: query
+      description: Page size; out-of-range values are rejected, not clamped.
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  headers:
+    X-Request-Id:
+      description: Correlation id, also present as `correlationId` in error bodies.
+      schema: { type: string }
+    Retry-After:
+      description: Seconds to wait before retrying.
+      schema: { type: integer, minimum: 1 }
+    Cache-Control-No-Store:
+      description: Always `no-store`.
+      schema: { type: string, const: no-store }
+    Set-Refresh-Cookie:
+      description: Sets, replaces or clears the HttpOnly refresh cookie.
+      schema: { type: string }
+
+  responses:
+    BadRequest:
+      description: '`VALIDATION_ERROR`, `MALFORMED_JSON` or `BAD_REQUEST`.'
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorBody' }
+    Unauthorized:
+      description: '`UNAUTHORIZED`: missing, expired, tampered or revoked credentials; failed login.'
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorBody' }
+    Forbidden:
+      description: '`FORBIDDEN` (Origin/CSRF check) or `CORS_FORBIDDEN`.'
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorBody' }
+    NotFound:
+      description: '`NOT_FOUND`: unknown, removed, or private to another user (same body in all cases).'
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorBody' }
+    Conflict:
+      description: '`CONFLICT`: duplicate, stale version, or idempotency key reused with other content.'
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorBody' }
+    PayloadTooLarge:
+      description: '`PAYLOAD_TOO_LARGE`: body above 64 KiB.'
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorBody' }
+    RateLimited:
+      description: '`RATE_LIMITED`: quota exceeded.'
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+        Retry-After: { $ref: '#/components/headers/Retry-After' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorBody' }
+    InternalError:
+      description: '`INTERNAL_ERROR`: unexpected failure; details are logged server-side only.'
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorBody' }
+    ServiceUnavailable:
+      description: '`SERVICE_UNAVAILABLE`: database or assistant provider unavailable or timed out.'
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorBody' }
+
+  schemas:
+    Id:
+      type: string
+      format: uuid
+      description: Opaque identifier. Never a permission.
+    Price:
+      type: string
+      pattern: '^(0|[1-9][0-9]{0,6})\.[0-9]{2}$'
+      description: Decimal amount with exactly two digits, 0.01 to 1000000.00.
+      examples: ['1250.00']
+    Currency:
+      type: string
+      enum: [MAD]
+      description: ISO 4217 code (allowlist).
+    Timestamp:
+      type: string
+      format: date-time
+      description: ISO 8601, UTC.
+
+    ErrorCode:
+      type: string
+      description: Stable error code (src/contracts/errors.ts).
+      enum:
+        - BAD_REQUEST
+        - VALIDATION_ERROR
+        - MALFORMED_JSON
+        - UNAUTHORIZED
+        - FORBIDDEN
+        - CORS_FORBIDDEN
+        - NOT_FOUND
+        - CONFLICT
+        - PAYLOAD_TOO_LARGE
+        - UNSUPPORTED_MEDIA_TYPE
+        - RATE_LIMITED
+        - INTERNAL_ERROR
+        - SERVICE_UNAVAILABLE
+    FieldIssue:
+      type: object
+      additionalProperties: false
+      required: [location, path, code, message]
+      description: Neutral field-level validation detail; never contains submitted values.
+      properties:
+        location: { type: string, enum: [params, query, body] }
+        path: { type: string }
+        code: { type: string }
+        message: { type: string }
+    ErrorBody:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, correlationId]
+          properties:
+            code: { $ref: '#/components/schemas/ErrorCode' }
+            message: { type: string }
+            correlationId: { type: string }
+            details:
+              type: array
+              description: Present only for VALIDATION_ERROR.
+              items: { $ref: '#/components/schemas/FieldIssue' }
+
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, const: ok }
+
+    Category:
+      type: object
+      additionalProperties: false
+      required: [id, label]
+      description: CategoryDto (toCategoryDto).
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        label: { type: string, maxLength: 60 }
+    CategoryList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Category' }
+
+    PublicSeller:
+      type: object
+      additionalProperties: false
+      required: [id, displayName]
+      description: PublicSellerDto (toPublicSellerDto). No email, role or status.
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        displayName: { type: string, maxLength: 50 }
+    Product:
+      type: object
+      additionalProperties: false
+      required: [id, title, description, price, currency, categoryId, seller, createdAt, updatedAt]
+      description: ProductDto (toProductDto). Public view of an active listing.
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        title: { type: string, maxLength: 120 }
+        description: { type: string, maxLength: 5000 }
+        price: { $ref: '#/components/schemas/Price' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        categoryId: { $ref: '#/components/schemas/Id' }
+        seller: { $ref: '#/components/schemas/PublicSeller' }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+    OwnProduct:
+      description: Owner view of a listing; adds status and version to the public view (mapper planned in Phase 4).
+      type: object
+      additionalProperties: false
+      required: [id, title, description, price, currency, categoryId, seller, createdAt, updatedAt, status, version]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        title: { type: string, maxLength: 120 }
+        description: { type: string, maxLength: 5000 }
+        price: { $ref: '#/components/schemas/Price' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        categoryId: { $ref: '#/components/schemas/Id' }
+        seller: { $ref: '#/components/schemas/PublicSeller' }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+        status: { type: string, enum: [ACTIVE, REMOVED] }
+        version: { type: integer, minimum: 1 }
+    ProductPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Product' }
+        nextCursor: { type: [string, 'null'] }
+    OwnProductPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/OwnProduct' }
+        nextCursor: { type: [string, 'null'] }
+    CreateProductRequest:
+      type: object
+      additionalProperties: false
+      required: [title, description, price, currency, categoryId]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, minLength: 1, maxLength: 5000 }
+        price: { $ref: '#/components/schemas/Price' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        categoryId: { $ref: '#/components/schemas/Id' }
+    UpdateProductRequest:
+      type: object
+      additionalProperties: false
+      required: [version]
+      minProperties: 2
+      properties:
+        version: { type: integer, minimum: 1, description: Current version of the listing. }
+        title: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, minLength: 1, maxLength: 5000 }
+        price: { $ref: '#/components/schemas/Price' }
+        categoryId: { $ref: '#/components/schemas/Id' }
+
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required: [email, displayName, password]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        displayName: { type: string, minLength: 1, maxLength: 50 }
+        password:
+          type: string
+          minLength: 12
+          maxLength: 128
+          writeOnly: true
+          description: Provisional bounds; final policy set in Phase 3.
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string, maxLength: 254 }
+        password: { type: string, minLength: 1, maxLength: 128, writeOnly: true }
+    RefreshTokenRequest:
+      type: object
+      additionalProperties: false
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string, minLength: 1, maxLength: 256, writeOnly: true }
+    CurrentUser:
+      type: object
+      additionalProperties: false
+      required: [id, email, displayName, role, createdAt]
+      description: Private view of the session user (mapper planned in Phase 3). Never includes the password hash.
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        email: { type: string, format: email }
+        displayName: { type: string, maxLength: 50 }
+        role: { type: string, enum: [USER, ADMIN] }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+    UpdateCurrentUserRequest:
+      type: object
+      additionalProperties: false
+      required: [displayName]
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 50 }
+    AccessToken:
+      type: object
+      additionalProperties: false
+      required: [accessToken, expiresIn]
+      properties:
+        accessToken: { type: string }
+        expiresIn: { type: integer, description: Lifetime in seconds (600). }
+    MobileTokens:
+      type: object
+      additionalProperties: false
+      required: [accessToken, expiresIn, refreshToken]
+      properties:
+        accessToken: { type: string }
+        expiresIn: { type: integer, description: Lifetime in seconds (600). }
+        refreshToken: { type: string, description: Opaque, single use, 7 days. }
+    WebSession:
+      type: object
+      additionalProperties: false
+      required: [accessToken, expiresIn, user]
+      properties:
+        accessToken: { type: string }
+        expiresIn: { type: integer }
+        user: { $ref: '#/components/schemas/CurrentUser' }
+    MobileSession:
+      type: object
+      additionalProperties: false
+      required: [accessToken, expiresIn, refreshToken, user]
+      properties:
+        accessToken: { type: string }
+        expiresIn: { type: integer }
+        refreshToken: { type: string }
+        user: { $ref: '#/components/schemas/CurrentUser' }
+
+    OpenConversationRequest:
+      type: object
+      additionalProperties: false
+      required: [productId]
+      properties:
+        productId: { $ref: '#/components/schemas/Id' }
+    Conversation:
+      type: object
+      additionalProperties: false
+      required: [id, productId, role, counterpart, lastMessageSeq, createdAt, updatedAt]
+      description: Conversation seen by one participant (mapper planned in Phase 5). No message content.
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        productId: { $ref: '#/components/schemas/Id' }
+        role: { type: string, enum: [BUYER, SELLER], description: Role of the session user. }
+        counterpart: { $ref: '#/components/schemas/PublicSeller' }
+        lastMessageSeq: { type: integer, minimum: 0 }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+    ConversationPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Conversation' }
+        nextCursor: { type: [string, 'null'] }
+    SendMessageRequest:
+      type: object
+      additionalProperties: false
+      required: [body, clientMessageId]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 2000 }
+        clientMessageId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: Idempotency key chosen by the client, unique per sender.
+    Message:
+      type: object
+      additionalProperties: false
+      required: [id, conversationId, senderId, body, clientMessageId, seq, createdAt]
+      description: Message DTO (mapper planned in Phase 5).
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        conversationId: { $ref: '#/components/schemas/Id' }
+        senderId: { $ref: '#/components/schemas/Id' }
+        body: { type: string, maxLength: 2000 }
+        clientMessageId: { type: string, maxLength: 64 }
+        seq: { type: integer, minimum: 1 }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+    MessagePage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Message' }
+        nextCursor: { type: [string, 'null'] }
+
+    AssistantChatRequest:
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        message: { type: string, minLength: 1, maxLength: 1000 }
+    AssistantChatResponse:
+      type: object
+      additionalProperties: false
+      required: [reply, products]
+      properties:
+        reply: { type: string, maxLength: 4000 }
+        products:
+          type: array
+          maxItems: 10
+          description: Public listings cited by the assistant, re-read through the products service.
+          items: { $ref: '#/components/schemas/Product' }

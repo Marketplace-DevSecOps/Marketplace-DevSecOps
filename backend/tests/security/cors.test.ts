@@ -51,5 +51,12 @@ describe('CORS allowlist', () => {
 
     expect(res.status).toBe(200);
     expect(res.headers['access-control-allow-origin']).toBeUndefined();
+    expect(res.headers['vary']).toMatch(/\bOrigin\b/);
+  });
+
+  it('sends Vary: Origin once when the origin is allowed', async () => {
+    const res = await request(app).get('/api/v1/health').set('Origin', ALLOWED_ORIGIN);
+
+    expect(res.headers['vary']?.match(/\bOrigin\b/g)).toHaveLength(1);
   });
 });

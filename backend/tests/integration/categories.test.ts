@@ -78,4 +78,12 @@ describe('GET /api/v1/categories (API-14)', () => {
     expect(CATEGORIES_CACHE_CONTROL).toBe('public, max-age=60');
     expect(res.headers['x-request-id']).toBeTruthy();
   });
+
+  it('sends Vary: Origin on the cacheable response even without an Origin header', async () => {
+    const res = await request(app).get('/api/v1/categories');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['cache-control']).toBe(CATEGORIES_CACHE_CONTROL);
+    expect(res.headers['vary']).toMatch(/\bOrigin\b/);
+  });
 });

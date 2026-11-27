@@ -23,7 +23,7 @@ Statuts : `[ ]` à faire, `[~]` en cours, `[x]` terminé.
 - [x] `GET /api/v1/health` minimal (API-13).
 - [x] Tests : health, 404, JSON malformé, corps trop grand, origine CORS refusée, absence de stack trace, en-têtes Helmet.
 
-## Phase 2 — Modèle de données, contrats et catégories (API-14) `[~]`
+## Phase 2 — Modèle de données, contrats et catégories (API-14) `[x]`
 
 Correctifs revue Phase 1 :
 
@@ -39,7 +39,7 @@ Correctifs revue Phase 1 :
 - [x] Squelette OpenAPI couvrant API-01 à API-14.
 - [x] `docs/backend/data-dictionary.md` (classification public/privé/secret).
 - [x] `GET /api/v1/categories` (API-14) + tests (catégorie inactive exclue).
-- [ ] Tests d'intégration : migrations sur base vierge, contraintes d'unicité.
+- [x] Tests d'intégration : migrations sur base vierge, contraintes d'unicité.
 
 ## Phase 3 — Authentification, sessions et profil (API-01 à API-04) `[ ]`
 

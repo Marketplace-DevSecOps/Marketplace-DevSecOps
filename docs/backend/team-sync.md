@@ -163,3 +163,26 @@ backend cannot add a field without breaking the app.
 3. Dev `.env.example`: allow the Expo Web origin `http://localhost:8081` (#14).
 4. Deferred: mobile session shape (Phase 3), `Conversation` DTO and buyer = seller status (Phase 5),
    Socket.IO contract (Phase 5), `Retry-After` exposure (Phase 7).
+
+## Verification (2026-11-27, after `3e55cec`)
+
+Local (Windows, Node 24.19.0, test DB `marketplace-db-test-1` on 127.0.0.1:5433):
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | pass |
+| `npm run lint` | pass |
+| `npm test` | 19 files, 148 tests pass (real PostgreSQL, migrations reset by `globalSetup`) |
+| `npm run build` | pass |
+| `npm audit` | 0 vulnerabilities (was 3 HIGH, all from `effect` 3.20.0) |
+
+CI steps replayed in Docker with an isolated compose project (`-p mpsync`, ports 5444/5443, removed
+afterwards). Image built from `backend/dockerfile`. `typecheck`, `lint` and `test` (19 files, 148 tests)
+pass in the container with `NODE_ENV=test`. Dev smoke test in the container:
+`GET /api/v1/categories` returns 500 before `npm run db:migrate:deploy` and 200 after it, which
+confirms problem A.1.
+
+GitHub Actions run 46044938078 on `3e55cec`: backend tests pass (19 files, 148 tests) and the mobile
+job passes. Trivy still fails. Its node-pkg findings drop from 7 to 6 HIGH because `effect` is gone.
+What remains is `brace-expansion` and `undici` from the base image's bundled npm, plus the 39 Debian
+OS findings. Both are on Abdelilah's list (Dockerfile item 1).

@@ -58,7 +58,7 @@ Correctifs revue Phase 2 :
 - [x] `Vary: Origin` toujours envoyé (réponse catégories en cache) + tests.
 - [x] Seed limité aux bases locales de dev/test (hôte, nom de base, `NODE_ENV`) + test du refus.
 
-- [ ] Hachage Argon2id (paramètres justifiés et mesurés).
+- [x] Hachage Argon2id (paramètres justifiés et mesurés).
 - [ ] `POST /auth/register` : rôle USER forcé, rôle injecté rejeté, doublon concurrent → 409.
 - [ ] `POST /auth/login` + `/auth/mobile/login` : erreur générique, quota 5 échecs/min compte+IP partagé entre variantes.
 - [ ] Jeton d'accès JWT 10 min (alg, iss, aud, exp stricts) ; refresh opaque 7 j, empreinte en base, rotation atomique, détection de réutilisation → révocation de la famille.

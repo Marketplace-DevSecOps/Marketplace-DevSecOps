@@ -9,8 +9,8 @@
 // database whose name contains "dev" or "test" (prisma/seed-guard.ts).
 import { existsSync } from 'node:fs';
 import { PrismaPg } from '@prisma/adapter-pg';
-import argon2 from 'argon2';
 import { PrismaClient } from '../src/generated/prisma/client.js';
+import { hashPassword } from '../src/modules/auth/password.js';
 import { assertSafeSeedTarget } from './seed-guard.js';
 
 if (existsSync('.env')) process.loadEnvFile('.env');
@@ -24,10 +24,6 @@ try {
 
 // Checked by assertSafeSeedTarget.
 const connectionString = process.env.DATABASE_URL as string;
-
-// Argon2id with the OWASP minimum profile (19 MiB, t=2, p=1). Phase 3 will
-// measure and justify the production parameters.
-const HASH_OPTIONS = { type: argon2.argon2id, memoryCost: 19_456, timeCost: 2, parallelism: 1 } as const;
 
 const categories = [
   { label: 'Électronique', isActive: true },
@@ -89,7 +85,7 @@ async function main(): Promise<void> {
             email: u.email,
             displayName: u.displayName,
             role: u.role,
-            passwordHash: await argon2.hash(u.password, HASH_OPTIONS),
+            passwordHash: await hashPassword(u.password),
           },
         });
     userIds.set(u.email, row.id);

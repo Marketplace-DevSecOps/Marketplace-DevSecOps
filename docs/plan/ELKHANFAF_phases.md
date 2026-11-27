@@ -46,7 +46,7 @@ Correctifs revue Phase 1 :
 - [x] `docs/backend/team-sync.md` : Compose/Dockerfile et CI d'Abdelilah, contrats mobile d'Anas, recommandations.
 - [x] Corriger `effect` (HIGH Trivy/npm audit) via `overrides` npm.
 - [x] OpenAPI messagerie alignée sur le protocole d'Anas (`afterSeq`, `clientMessageId` UUID, normalisation du corps).
-- [ ] `.env.example` : origine Expo Web de développement dans `CORS_ORIGINS`.
+- [x] `.env.example` : origine Expo Web de développement dans `CORS_ORIGINS`.
 - [ ] Vérification typecheck/lint/test/build consignée dans `team-sync.md`.
 
 ## Phase 3 — Authentification, sessions et profil (API-01 à API-04) `[ ]`

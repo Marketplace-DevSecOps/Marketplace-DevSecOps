@@ -672,16 +672,20 @@ paths:
       tags: [products]
       operationId: listCategories
       summary: Active categories for filters and listing forms.
-      description: Not implemented yet (Phase 2). Public; inactive categories are excluded.
+      description: |
+        Public; inactive categories are excluded. Items carry only `id` and `label`,
+        are ordered by label and capped at 100.
       x-api-ref: API-14
-      x-status: not-implemented
-      x-planned-phase: 2
+      x-status: implemented
       security: []
       responses:
         '200':
-          description: All active categories (bounded reference list).
+          description: Active categories (bounded reference list).
           headers:
             X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+            Cache-Control:
+              description: Short shared caching of the public list.
+              schema: { type: string, const: 'public, max-age=60' }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CategoryList' }
@@ -890,6 +894,7 @@ components:
       properties:
         items:
           type: array
+          maxItems: 100
           items: { $ref: '#/components/schemas/Category' }
 
     PublicSeller:

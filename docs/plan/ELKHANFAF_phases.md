@@ -38,7 +38,7 @@ Correctifs revue Phase 1 :
 - [x] Conventions DTO et catalogue des codes d'erreur.
 - [x] Squelette OpenAPI couvrant API-01 à API-14.
 - [x] `docs/backend/data-dictionary.md` (classification public/privé/secret).
-- [ ] `GET /api/v1/categories` (API-14) + tests (catégorie inactive exclue).
+- [x] `GET /api/v1/categories` (API-14) + tests (catégorie inactive exclue).
 - [ ] Tests d'intégration : migrations sur base vierge, contraintes d'unicité.
 
 ## Phase 3 — Authentification, sessions et profil (API-01 à API-04) `[ ]`

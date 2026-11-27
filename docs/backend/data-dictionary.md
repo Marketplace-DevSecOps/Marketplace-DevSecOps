@@ -178,8 +178,8 @@ Table constraints: unique `Message_senderId_clientMessageId_key (senderId, clien
 | Field | Stored as | Exposed by | Logged |
 |---|---|---|---|
 | `User.passwordHash` | Argon2id encoded hash | no DTO | never (redacted key `passwordHash`) |
-| `Session.refreshTokenHash` | digest of the refresh token | no DTO | must never be passed to the logger. The key is **not** in `SECRET_KEYS` today, so redaction does not catch it. |
+| `Session.refreshTokenHash` | digest of the refresh token | no DTO | never (key contains `token`, redacted) |
 
 The plaintext password and the plaintext refresh token are never stored. They exist only in request bodies (`writeOnly` in OpenAPI), the refresh cookie and the mobile token responses.
 
-Log redaction (`backend/src/infrastructure/logger.ts`): `SECRET_KEYS` redacts `password`, `passwordHash`, `token`, `accessToken`, `refreshToken`, `cookie` and `authorization` at any depth (case-insensitive), and `REDACT_PATHS` removes the `authorization`, `cookie` and `x-csrf-token` request headers and the `set-cookie` response header. Message bodies are kept out of logs by not logging request bodies, not by redaction.
+Log redaction (`backend/src/infrastructure/logger.ts`): a field is redacted at any depth when its name, lowercased and with `-`/`_` removed, contains one of `SECRET_KEY_FRAGMENTS`: `password`, `token`, `secret`, `cookie`, `authorization`, `csrf`, `jwt`, `apikey` (so `passwordHash`, `newPassword`, `refreshTokenHash`, `refresh_token`, `csrfToken`, `set-cookie` are covered). There are no exemptions: non-secret keys such as `tokenType` are redacted too (deliberate over-redaction). `sessionId`, `userId` and `familyId` stay visible for correlation. In addition, `REDACT_PATHS` removes the `authorization`, `cookie` and `x-csrf-token` request headers and the `set-cookie` response header. Message bodies are kept out of logs by not logging request bodies, not by redaction.

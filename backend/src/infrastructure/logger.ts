@@ -15,21 +15,33 @@ export const REDACT_PATHS = [
 ];
 
 /**
- * Field names redacted at any depth in the object passed to a log call
- * (compared case-insensitively). Child logger bindings are not covered:
- * never bind secrets with logger.child().
+ * A field is redacted, at any depth of the object passed to a log call, when
+ * its name (lowercased, with `-` and `_` removed) contains one of these
+ * fragments. This covers passwordHash, newPassword, refreshTokenHash,
+ * refresh_token, csrfToken, set-cookie, clientSecret...
+ *
+ * There are no exemptions: non-secret keys such as tokenType or
+ * accessTokenExpiresAt are redacted too. Over-redacting a harmless value
+ * costs nothing; a missed secret leaks. Correlation ids (sessionId, userId,
+ * familyId) contain no fragment and stay visible.
+ *
+ * Child logger bindings are not covered: never bind secrets with logger.child().
  */
-export const SECRET_KEYS: readonly string[] = [
+export const SECRET_KEY_FRAGMENTS: readonly string[] = [
   'password',
-  'passwordHash',
   'token',
-  'accessToken',
-  'refreshToken',
+  'secret',
   'cookie',
   'authorization',
+  'csrf',
+  'jwt',
+  'apikey',
 ];
 
-const SECRET_KEY_SET = new Set(SECRET_KEYS.map((key) => key.toLowerCase()));
+export function isSecretKey(key: string): boolean {
+  const normalized = key.toLowerCase().replace(/[-_]/g, '');
+  return SECRET_KEY_FRAGMENTS.some((fragment) => normalized.includes(fragment));
+}
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (typeof value !== 'object' || value === null) return false;
@@ -53,7 +65,7 @@ function redactSecrets(value: unknown, ancestors: WeakSet<object>): unknown {
   } else {
     const entries: Record<string, unknown> = {};
     for (const [key, child] of Object.entries(value)) {
-      entries[key] = SECRET_KEY_SET.has(key.toLowerCase()) ? REDACTED : redactSecrets(child, ancestors);
+      entries[key] = isSecretKey(key) ? REDACTED : redactSecrets(child, ancestors);
     }
     copy = entries;
   }

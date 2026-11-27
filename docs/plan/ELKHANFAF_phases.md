@@ -41,7 +41,9 @@ Correctifs revue Phase 1 :
 - [x] `GET /api/v1/categories` (API-14) + tests (catégorie inactive exclue).
 - [x] Tests d'intégration : migrations sur base vierge, contraintes d'unicité.
 
-## Synchronisation équipe (avant Phase 3) `[x]`
+## Phase 3 — Authentification, sessions et profil (API-01 à API-04) `[~]`
+
+Synchronisation équipe :
 
 - [x] `docs/backend/team-sync.md` : Compose/Dockerfile et CI d'Abdelilah, contrats mobile d'Anas, recommandations.
 - [x] Corriger `effect` (HIGH Trivy/npm audit) via `overrides` npm.
@@ -49,7 +51,12 @@ Correctifs revue Phase 1 :
 - [x] `.env.example` : origine Expo Web de développement dans `CORS_ORIGINS`.
 - [x] Vérification typecheck/lint/test/build consignée dans `team-sync.md`.
 
-## Phase 3 — Authentification, sessions et profil (API-01 à API-04) `[ ]`
+Correctifs revue Phase 2 :
+
+- [x] Expurgation des logs par fragment de clé (password, token, secret, cookie, authorization, csrf, jwt, apikey ; casse, `-` et `_` ignorés) + tests.
+- [ ] `TRUST_PROXY` en production : sous-réseaux trop larges (`/0`, préfixe IPv4 < 8, IPv6 < 16) et plus de 3 sauts refusés + tests.
+- [ ] `Vary: Origin` toujours envoyé (réponse catégories en cache) + tests.
+- [ ] Seed limité aux bases locales de dev/test (hôte, nom de base, `NODE_ENV`) + test du refus.
 
 - [ ] Hachage Argon2id (paramètres justifiés et mesurés).
 - [ ] `POST /auth/register` : rôle USER forcé, rôle injecté rejeté, doublon concurrent → 409.

@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { REDACTED } from '../../src/infrastructure/logger.js';
+import { isSecretKey, REDACTED } from '../../src/infrastructure/logger.js';
 import { buildTestApp } from '../helpers/testApp.js';
 
 const BEARER = 'eyJhbGciOiJIUzI1NiJ9.secret-access-token';
@@ -98,6 +98,53 @@ describe('log redaction', () => {
     }
     // The caller's object is left untouched.
     expect(event.a.b.c.password).toBe('deep-password');
+  });
+
+  it('redacts every key containing a secret fragment (any case, - and _ ignored) at depth 3+', () => {
+    const { logger, logs } = buildTestApp({ captureLogs: true });
+    const secretKeys = [
+      'refreshTokenHash',
+      'passwordHash',
+      'newPassword',
+      'currentPassword',
+      'refresh_token',
+      'csrfToken',
+      'set-cookie',
+      'X-CSRF-Token',
+      'clientSecret',
+      'ACCESS_TOKEN',
+      'jwtValue',
+      'api_key',
+      // Documented over-redaction: not a secret, but contains "token".
+      'tokenType',
+    ];
+    const leaf: Record<string, string> = {
+      sessionId: 'visible-session-id',
+      userId: 'visible-user-id',
+      familyId: 'visible-family-id',
+      email: 'visible@example.test',
+    };
+    for (const key of secretKeys) leaf[key] = `secret-value-of-${key}`;
+
+    logger.info({ a: { b: { c: leaf } } }, 'fragment event');
+
+    const output = logs();
+    for (const key of secretKeys) {
+      expect(output).not.toContain(`secret-value-of-${key}`);
+      expect(output).toContain(`"${key}":"${REDACTED}"`);
+    }
+    for (const value of Object.values(leaf).filter((v) => v.startsWith('visible'))) {
+      expect(output).toContain(value);
+    }
+  });
+
+  it('isSecretKey matches fragments and leaves correlation ids alone', () => {
+    for (const key of ['Authorization', 'COOKIE', 'refresh-token', 'mySecretThing', 'tokenType']) {
+      expect(isSecretKey(key)).toBe(true);
+    }
+    for (const key of ['sessionId', 'userId', 'familyId', 'email', 'displayName', 'expiresAt']) {
+      expect(isSecretKey(key)).toBe(false);
+    }
   });
 
   it('redacts secrets inside circular structures', () => {
